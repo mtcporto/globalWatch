@@ -1,3 +1,4 @@
+
 import type {
   FBIWantedResponse,
   FBIWantedItem,
@@ -5,6 +6,7 @@ import type {
   InterpolNotice,
   CombinedWantedPerson,
   InterpolImagesResponse,
+  InterpolImageDetail,
 } from './types';
 
 const FBI_API_BASE_URL = 'https://api.fbi.gov/wanted/v1/list';
@@ -56,8 +58,6 @@ export async function fetchFBIDetail(uid: string): Promise<FBIWantedItem | null>
   const url = `https://api.fbi.gov/@wanted-person/${uid}`; // This is a guess based on @id field
   // A more robust way if the above is not official, would be to fetch the list and find by UID.
   // Or use item.url which is often a link to the fbi.gov website page.
-  // For now, let's assume the main list fetch is sufficient for card display and detail display
-  // by passing the whole item or fetching list with specific UID query if available.
   // For this project, we will re-fetch the list and find the item. This is not optimal.
   const list = await fetchFBIWantedList(1, 500); // Fetch a larger list, assuming UID is within
   return list.find(item => item.uid === uid) || null;
@@ -65,7 +65,7 @@ export async function fetchFBIDetail(uid: string): Promise<FBIWantedItem | null>
 
 
 // Interpol Data Fetching
-export async function fetchInterpolRedNotices(page: number = 1, resultPerPage: number = 16): Promise<InterpolNotice[]> {
+export async function fetchInterpolRedNotices(page: number = 1, resultPerPage: number = 20): Promise<InterpolNotice[]> {
   // Interpol API seems to be 1-indexed for page if it uses it. Documentation isn't explicit.
   // The example provided is for ws-public.interpol.int, which supports resultPerPage and other filters.
   const params = new URLSearchParams({
@@ -184,7 +184,7 @@ function normalizeInterpolItem(item: InterpolNotice, detailedImages: InterpolIma
   };
 }
 
-export async function getCombinedWantedList(page: number = 1, pageSize: number = 10): Promise<CombinedWantedPerson[]> {
+export async function getCombinedWantedList(page: number = 1, pageSize: number = 20): Promise<CombinedWantedPerson[]> {
   const fbiItems = await fetchFBIWantedList(page, pageSize);
   const interpolItems = await fetchInterpolRedNotices(page, pageSize); // Interpol uses different paging logic, may need adjustment
 
@@ -256,3 +256,4 @@ export function mapInterpolColorCodes(codes: string[] | undefined, map: {[key: s
   if (!codes || codes.length === 0) return undefined;
   return codes.map(code => map[code] || code).join(', ');
 }
+
