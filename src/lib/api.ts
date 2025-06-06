@@ -16,9 +16,9 @@ const INTERPOL_API_BASE_URL = 'https://ws-public.interpol.int/notices/v1';
 // Helper to safely fetch JSON
 async function fetchJson<T>(url: string, options?: RequestInit): Promise<T | null> {
   try {
+    // Using minimal headers again
     const defaultHeaders: HeadersInit = {
       'Accept': 'application/json',
-      'User-Agent': 'GlobalWatch Fetcher/1.0', // Re-added specific User-Agent
     };
 
     const finalHeaders = {
@@ -27,23 +27,22 @@ async function fetchJson<T>(url: string, options?: RequestInit): Promise<T | nul
     };
 
     // Sanitize URL: remove any trailing colon just in case.
-    // This is a precaution based on concerns about URL formatting in logs.
     const sanitizedUrl = url.endsWith(':') ? url.slice(0, -1) : url;
 
-    const response = await fetch(sanitizedUrl, { // Use the sanitized URL
+    const response = await fetch(sanitizedUrl, {
       ...options,
       headers: finalHeaders,
     });
 
     if (!response.ok) {
-      console.error(`API error for ${sanitizedUrl}: ${response.status} ${response.statusText}`); // Log with sanitizedUrl
+      console.error(`API error for ${sanitizedUrl}: ${response.status} ${response.statusText}`);
       const errorBody = await response.text();
       console.error('Error body:', errorBody);
       return null;
     }
     return response.json() as Promise<T>;
   } catch (error) {
-    console.error(`Network error fetching ${url}:`, error); // Original URL in catch for broader context
+    console.error(`Network error fetching ${url}:`, error);
     return null;
   }
 }
@@ -61,7 +60,10 @@ export async function fetchFBIWantedList(page: number = 1, pageSize: number = 20
 }
 
 export async function fetchFBIDetail(uid: string): Promise<FBIWantedItem | null> {
-  const list = await fetchFBIWantedList(1, 500); 
+  // Fetching the whole list to find one item is inefficient.
+  // The FBI API does not seem to have a direct GET by UID for v1.
+  // This is a workaround. Consider caching or alternative strategies for production.
+  const list = await fetchFBIWantedList(1, 500); // Attempt to get a large enough list
   return list.find(item => item.uid === uid) || null;
 }
 
@@ -94,22 +96,22 @@ export async function fetchInterpolNoticeImages(noticeId: string): Promise<Inter
 // Data Normalization
 function normalizeFBIItem(item: FBIWantedItem): CombinedWantedPerson {
   const fbiImageObjects = item.images || [];
-  
+
+  // Prioritize 'large' or 'original', then 'thumb'
   const prioritizedImages = [
-    ...fbiImageObjects.map(img => img.original).filter(Boolean),
     ...fbiImageObjects.map(img => img.large).filter(Boolean),
+    ...fbiImageObjects.map(img => img.original).filter(Boolean),
   ].filter(Boolean) as string[];
-  
+
   if (prioritizedImages.length === 0) {
     const thumbs = fbiImageObjects.map(img => img.thumb).filter(Boolean) as string[];
     if (thumbs.length > 0) {
-      prioritizedImages.push(thumbs[0]);
+      prioritizedImages.push(thumbs[0]); // Fallback to first thumb if no large/original
     }
   }
 
   const uniqueImages = Array.from(new Set(prioritizedImages));
   const primaryDisplayImage = uniqueImages.length > 0 ? uniqueImages[0] : `https://placehold.co/300x400.png?text=No+Image`;
-  const bestThumbnail = uniqueImages.length > 0 ? uniqueImages[0] : primaryDisplayImage;
 
 
   let heightStr = null;
@@ -165,16 +167,16 @@ function normalizeFBIItem(item: FBIWantedItem): CombinedWantedPerson {
     source: 'fbi',
     name: item.title,
     images: uniqueImages.length > 0 ? uniqueImages : [primaryDisplayImage],
-    thumbnailUrl: bestThumbnail, 
-    details: item.details || item.caution, 
+    thumbnailUrl: primaryDisplayImage, // Use the prioritized image for thumbnail too
+    details: item.details || item.caution,
     remarks: item.remarks,
     warningMessage: item.warning_message,
     rewardText: item.reward_text,
     sex: item.sex,
     race: item.race,
     nationality: item.nationality ? [item.nationality] : null,
-    dateOfBirth: item.dates_of_birth_used?.[0] || null, 
-    age: item.age_range ? undefined : (item.age_max || item.age_min || undefined), 
+    dateOfBirth: item.dates_of_birth_used?.[0] || null,
+    age: item.age_range ? undefined : (item.age_max || item.age_min || undefined),
     age_range: item.age_range,
     placeOfBirth: item.place_of_birth,
     height: heightStr,
@@ -202,28 +204,28 @@ function normalizeInterpolItem(item: InterpolNotice, detailedImagesFromApi?: Int
   let primaryImageForDisplay: string | undefined;
   let allImagesForGallery: string[] = [];
 
-  if (detailedImagesFromApi && detailedImagesFromApi.length > 0 && detailedImagesFromApi[0]?._links?.self?.href) {
-    primaryImageForDisplay = detailedImagesFromApi[0]._links.self.href;
+  // Prioritize images from the detailed /images endpoint if available
+  if (detailedImagesFromApi && detailedImagesFromApi.length > 0) {
+    primaryImageForDisplay = detailedImagesFromApi[0]?._links?.self?.href; // Use the first image from detailed call
     allImagesForGallery = detailedImagesFromApi
       .map(img => img._links?.self?.href)
       .filter(Boolean) as string[];
   } else if (item._links?.thumbnail?.href) {
-    // Use the notice's thumbnail if no detailed images are available or if it's for the list view
+    // Fallback to the thumbnail from the notice list if no detailed images are fetched (e.g., for card view)
     primaryImageForDisplay = item._links.thumbnail.href;
+    if (primaryImageForDisplay && !primaryImageForDisplay.includes('placehold.co')) {
+        allImagesForGallery.push(primaryImageForDisplay);
+    }
   }
-  
-  if (!primaryImageForDisplay && allImagesForGallery.length > 0) {
-    primaryImageForDisplay = allImagesForGallery[0]; 
-  } else if (!primaryImageForDisplay) {
+
+  // Final fallback to placeholder
+  if (!primaryImageForDisplay) {
      primaryImageForDisplay = `https://placehold.co/300x400.png?text=${encodeURIComponent(fullName || 'No Image')}`;
   }
-  
-  if (allImagesForGallery.length === 0 && primaryImageForDisplay && !primaryImageForDisplay.includes('placehold.co')) {
+  if (allImagesForGallery.length === 0) {
     allImagesForGallery.push(primaryImageForDisplay);
-  } else if (allImagesForGallery.length === 0) {
-    allImagesForGallery.push(`https://placehold.co/300x400.png?text=${encodeURIComponent(fullName || 'No Image')}`);
   }
-  
+
   let sex = null;
   if (item.sex_id === 'M') sex = 'Male';
   if (item.sex_id === 'F') sex = 'Female';
@@ -232,7 +234,7 @@ function normalizeInterpolItem(item: InterpolNotice, detailedImagesFromApi?: Int
 
   let heightStr = item.height ? `${item.height.toFixed(2)}m` : null;
   let weightStr = item.weight ? `${item.weight}kg` : null;
-  
+
   const charges = item.arrest_warrants?.map(aw => aw.charge);
 
   return {
@@ -243,7 +245,7 @@ function normalizeInterpolItem(item: InterpolNotice, detailedImagesFromApi?: Int
     firstName: item.forename,
     lastName: item.name,
     images: allImagesForGallery,
-    thumbnailUrl: primaryImageForDisplay, 
+    thumbnailUrl: primaryImageForDisplay,
     details: item.arrest_warrants?.map(aw => `${aw.charge} (Issuing Country: ${aw.issuing_country_id || 'N/A'})`).join('; ') || undefined,
     sex: sex,
     nationality: item.nationalities,
@@ -251,19 +253,19 @@ function normalizeInterpolItem(item: InterpolNotice, detailedImagesFromApi?: Int
     placeOfBirth: item.place_of_birth || item.country_of_birth_id,
     height: heightStr,
     weight: weightStr,
-    eyeColor: item.eyes_colors_id?.map(code => EYE_COLOR_MAP[code] || code).join(', '), 
-    hairColor: item.hairs_id?.map(code => HAIR_COLOR_MAP[code] || code).join(', '), 
+    eyeColor: item.eyes_colors_id?.map(code => EYE_COLOR_MAP[code] || code).join(', '),
+    hairColor: item.hairs_id?.map(code => HAIR_COLOR_MAP[code] || code).join(', '),
     distinguishingMarks: item.distinguishing_marks,
     charges: charges,
     originalData: item,
     detailsUrl: `/person/interpol/${item.entity_id.replace('/', '-')}`,
-    classification: 'WANTED_CRIMINAL', 
+    classification: 'WANTED_CRIMINAL',
     caseTypeDescription: charges?.join(' / ') || 'Wanted by Interpol',
   };
 }
 
 export async function getCombinedWantedList(page: number = 1, pageSize: number = 20): Promise<CombinedWantedPerson[]> {
-  const fbiPageSize = pageSize <= 1 ? pageSize : Math.max(1, Math.floor(pageSize / 2) + (pageSize % 2)); 
+  const fbiPageSize = pageSize <= 1 ? pageSize : Math.max(1, Math.floor(pageSize / 2) + (pageSize % 2));
   const interpolPageSize = pageSize <= 1 ? (pageSize > 0 ? 0 : 0) : Math.max(0, Math.floor(pageSize / 2));
 
 
@@ -286,22 +288,22 @@ export async function getCombinedWantedList(page: number = 1, pageSize: number =
     for (const item of interpolItems) {
       if (item && item.entity_id) {
         // For the list view, we don't have detailed images yet, so pass undefined
-        combinedList.push(normalizeInterpolItem(item, undefined)); 
+        combinedList.push(normalizeInterpolItem(item, undefined));
       }
     }
   }
-  
+
   return combinedList.sort((a, b) => {
     const dateAValue = (a.originalData as FBIWantedItem).publication;
     const dateBValue = (b.originalData as FBIWantedItem).publication;
 
     const dateA = dateAValue ? new Date(dateAValue).getTime() : 0;
     const dateB = dateBValue ? new Date(dateBValue).getTime() : 0;
-    
-    if (dateA && dateB) return dateB - dateA; 
-    if (dateA) return -1; 
-    if (dateB) return 1;  
-    
+
+    if (dateA && dateB) return dateB - dateA;
+    if (dateA) return -1;
+    if (dateB) return 1;
+
     return (a.name || "").localeCompare(b.name || "");
   });
 }
@@ -314,8 +316,8 @@ export async function getPersonDetails(source: 'fbi' | 'interpol', id: string): 
   } else if (source === 'interpol') {
     const item = await fetchInterpolNoticeDetail(id);
     if (item) {
-      const images = await fetchInterpolNoticeImages(id); 
-      return normalizeInterpolItem(item, images); 
+      const images = await fetchInterpolNoticeImages(id);
+      return normalizeInterpolItem(item, images);
     }
     return null;
   }
@@ -349,7 +351,5 @@ export function mapInterpolColorCodes(codes: string[] | undefined, map: {[key: s
   if (!codes || codes.length === 0) return undefined;
   return codes.map(code => map[code] || code).join(', ');
 }
-
-    
 
     
