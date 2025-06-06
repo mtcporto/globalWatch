@@ -99,115 +99,164 @@ function normalizeFBIItem(item: FBIWantedItem): WantedPerson {
     heightStr = `At least ${feet}'${inches}" (${(item.height_min * 0.0254).toFixed(2)}m)`;
   }
 
-  let classification: PersonClassification = 'WANTED_CRIMINAL';
+  let classification: PersonClassification = 'UNSPECIFIED'; // Default to UNSPECIFIED
   let caseTypeDesc: string | null = item.title || item.subjects?.join(' / ') || item.description;
   let actualCharges: string[] | null = item.subjects || null;
 
-  const posterClass = item.poster_classification?.toLowerCase();
-  const personClass = item.person_classification?.toLowerCase();
+  const posterClassLower = item.poster_classification?.toLowerCase();
+  const personClassLower = item.person_classification?.toLowerCase();
   const subjectsLower = item.subjects?.map(s => s.toLowerCase()) || [];
   const titleLower = item.title?.toLowerCase() || "";
   const detailsLower = item.details?.toLowerCase() || "";
   const descriptionLower = item.description?.toLowerCase() || "";
-
+  const remarksLower = item.remarks?.toLowerCase() || "";
+  const combinedTextLower = `${descriptionLower} ${detailsLower} ${remarksLower}`;
 
   // --- Classification Logic ---
 
-  // 1. Check explicit classifications first (e.g., from poster_classification, person_classification)
-  if (posterClass === 'missing' || personClass === 'missing person') {
-    classification = 'MISSING_PERSON';
-  } else if (posterClass === 'information' || personClass === 'seeking information') {
-    classification = 'SEEKING_INFORMATION';
-  } else if (posterClass === 'victim' || personClass === 'victim') {
-    classification = 'VICTIM_IDENTIFICATION';
-  }
+  // 1. Handle 'captured' status first - this overrides other classifications
+  if (item.status?.toLowerCase() === 'captured') {
+    classification = 'CAPTURED';
+  } else {
+    // 2. Check for specific crime categories based on subjects or title
+    if (subjectsLower.includes("cyber's most wanted") || titleLower.includes("cyber's most wanted")) {
+        classification = 'CYBER_MOST_WANTED';
+    } else if (subjectsLower.includes('crimes against children') || titleLower.includes('crimes against children')) {
+        classification = 'CRIMES_AGAINST_CHILDREN';
+    } else {
+        // 3. Standard classification based on poster_classification, person_classification
+        if (posterClassLower === 'missing' || personClassLower === 'missing person') {
+            classification = 'MISSING_PERSON';
+        } else if (posterClassLower === 'information' || personClassLower === 'seeking information') {
+            classification = 'SEEKING_INFORMATION';
+        } else if (posterClassLower === 'victim' || personClassLower === 'victim') {
+            // This is a general victim flag, might be refined later to UNIDENTIFIED or VICTIM_OF_CRIME
+            classification = 'UNSPECIFIED'; // Start as unspecified, let text analysis decide
+        } else {
+            classification = 'WANTED_CRIMINAL'; // Default if no other strong indicators yet
+        }
 
-  // 2. If still 'WANTED_CRIMINAL', check subjects for more specific non-criminal types
-  if (classification === 'WANTED_CRIMINAL' && item.subjects && item.subjects.length > 0) {
-    if (subjectsLower.some(s => s.includes('vicap missing persons') || s.includes('kidnappings and missing persons') || s.includes('missing person'))) {
-      classification = 'MISSING_PERSON';
-    } else if (subjectsLower.some(s => s.includes('seeking information'))) {
-      classification = 'SEEKING_INFORMATION';
-    } else if (subjectsLower.some(s => s.includes('vicap unidentified persons') || s.includes('vicap homicides and sexual assaults') || s.includes('unidentified human remains') || s.includes('homicide victim') || s.includes('sexual assault victim'))) {
-      classification = 'VICTIM_IDENTIFICATION';
-    }
-  }
+        // 4. Refine based on keywords in subjects
+        if (classification === 'WANTED_CRIMINAL' || classification === 'UNSPECIFIED') {
+            if (subjectsLower.some(s => s.includes('vicap missing persons') || s.includes('kidnappings and missing persons') || s.includes('missing person'))) {
+                classification = 'MISSING_PERSON';
+            } else if (subjectsLower.some(s => s.includes('seeking information'))) {
+                classification = 'SEEKING_INFORMATION';
+            } else if (subjectsLower.some(s => s.includes('vicap unidentified persons') || s.includes('unidentified human remains'))) {
+                classification = 'UNIDENTIFIED_PERSON';
+            } else if (subjectsLower.some(s => s.includes('vicap homicides and sexual assaults') || s.includes('homicide victim') || s.includes('sexual assault victim'))) {
+                 // If title also implies unidentified, it's UNIDENTIFIED_PERSON, otherwise VICTIM_OF_CRIME
+                if (titleLower.includes('unidentified') || titleLower.includes('jane doe') || titleLower.includes('john doe')) {
+                    classification = 'UNIDENTIFIED_PERSON';
+                } else {
+                    classification = 'VICTIM_OF_CRIME';
+                }
+            }
+        }
 
-  // 3. If still 'WANTED_CRIMINAL', check title for hints (less reliable)
-  if (classification === 'WANTED_CRIMINAL' && titleLower) {
-    if (titleLower.includes('missing person') || (titleLower.includes('missing') && !titleLower.includes("information for missing"))) {
-        classification = 'MISSING_PERSON';
-    } else if (titleLower.includes('seeking information') || titleLower.includes('information sought')) {
-        classification = 'SEEKING_INFORMATION';
-    } else if (titleLower.includes('unidentified') || titleLower.includes('jane doe') || titleLower.includes('john doe') || titleLower.includes('victim identification') || titleLower.includes('homicide victim') || titleLower.includes('sexual assault victim') || titleLower.includes('victim of homicide')) {
-        classification = 'VICTIM_IDENTIFICATION';
-    }
-  }
-  
-  // 4. If still 'WANTED_CRIMINAL', check description and details (more robust check)
-  if (classification === 'WANTED_CRIMINAL') {
-    const combinedTextLower = `${descriptionLower} ${detailsLower} ${item.remarks?.toLowerCase() || ''}`;
-    // More specific victim indicators
-    if (combinedTextLower.includes('body was found') || 
-        combinedTextLower.includes('victim of homicide') || 
-        combinedTextLower.includes('died as a result') ||
-        combinedTextLower.includes('suffered blunt force wounds') || 
-        combinedTextLower.includes('evidence of strangulation') || 
-        combinedTextLower.includes('skeletal remains identified as') ||
-        combinedTextLower.includes('manner of death is unknown') ||
-        (combinedTextLower.includes('cause of death') && !combinedTextLower.includes('seeking information on cause of death'))) {
-        classification = 'VICTIM_IDENTIFICATION';
-    } else if (combinedTextLower.includes('was last seen') && (combinedTextLower.includes('disappearance') || combinedTextLower.includes('missing since') || combinedTextLower.includes('intended to visit') && combinedTextLower.includes('left without her phone'))) { // "was last seen" alone is weak for missing, add context
-        classification = 'MISSING_PERSON';
-    } else if (combinedTextLower.includes('missing person') && !titleLower.includes("information for missing")) { // Avoid "seeking information for missing person"
-        classification = 'MISSING_PERSON';
-    } else if (combinedTextLower.includes('seeking information') || combinedTextLower.includes('information sought') || combinedTextLower.includes('public assistance is requested') || combinedTextLower.includes('anyone with information')) {
-        classification = 'SEEKING_INFORMATION';
-    } else if (combinedTextLower.includes('unidentified person') || combinedTextLower.includes('unidentified human remains') || combinedTextLower.includes('jane doe') || combinedTextLower.includes('john doe')) {
-        classification = 'VICTIM_IDENTIFICATION';
-    }
-  }
+        // 5. Refine based on keywords in title (if not already specifically classified)
+        if (classification === 'WANTED_CRIMINAL' || classification === 'UNSPECIFIED') {
+            if (titleLower.includes('missing person') || (titleLower.includes('missing') && !titleLower.includes("information for missing"))) {
+                classification = 'MISSING_PERSON';
+            } else if (titleLower.includes('seeking information') || titleLower.includes('information sought')) {
+                classification = 'SEEKING_INFORMATION';
+            } else if (titleLower.includes('unidentified') || titleLower.includes('jane doe') || titleLower.includes('john doe') || titleLower.includes('unidentified human remains')) {
+                classification = 'UNIDENTIFIED_PERSON';
+            } else if (titleLower.includes('victim of homicide') || titleLower.includes('sexual assault victim')) {
+                 classification = 'VICTIM_OF_CRIME';
+            }
+        }
+      
+        // 6. Deep text analysis for details, description, remarks (powerful override for victim/unidentified/missing)
+        if (combinedTextLower.includes('body was found') ||
+            combinedTextLower.includes('victim of homicide') ||
+            combinedTextLower.includes('died as a result') ||
+            combinedTextLower.includes('suffered blunt force wounds') ||
+            combinedTextLower.includes('evidence of strangulation') ||
+            (combinedTextLower.includes('cause of death') && !combinedTextLower.includes('seeking information on cause of death'))) {
+            if (titleLower.includes('unidentified') || titleLower.includes('jane doe') || titleLower.includes('john doe') || combinedTextLower.includes('unidentified human remains')) {
+                 classification = 'UNIDENTIFIED_PERSON';
+            } else {
+                 classification = 'VICTIM_OF_CRIME';
+            }
+        } else if (combinedTextLower.includes('unidentified person') || combinedTextLower.includes('unidentified human remains') || combinedTextLower.includes('jane doe') || combinedTextLower.includes('john doe')) {
+            classification = 'UNIDENTIFIED_PERSON';
+        } else if ((combinedTextLower.includes('was last seen') && (combinedTextLower.includes('disappearance') || combinedTextLower.includes('missing since'))) ||
+                   (combinedTextLower.includes('missing person') && !titleLower.includes("information for missing"))) {
+            classification = 'MISSING_PERSON';
+        } else if (classification === 'WANTED_CRIMINAL' && (combinedTextLower.includes('seeking information') || combinedTextLower.includes('information sought') || combinedTextLower.includes('public assistance is requested') || combinedTextLower.includes('anyone with information'))) {
+             classification = 'SEEKING_INFORMATION';
+        }
 
-  // 5. Final check and refinement, especially for ViCAP cases that might still be WANTED_CRIMINAL
-  if (classification === 'WANTED_CRIMINAL' && (subjectsLower.includes('vicap') || titleLower.includes('vicap'))) {
-      if (subjectsLower.some(s => s.includes('unidentified') || s.includes('homicides and sexual assaults') || s.includes('victim')) ||
-          titleLower.includes('unidentified') || titleLower.includes('victim')) {
-          classification = 'VICTIM_IDENTIFICATION';
-      } else if (subjectsLower.some(s => s.includes('seeking information')) || titleLower.includes('seeking information')) {
-          classification = 'SEEKING_INFORMATION';
-      }
-  }
-  
-  // 6. If subjects are empty or only contain vague terms like "assistance" and still classified as WANTED_CRIMINAL, re-evaluate based on title/description.
-  if (classification === 'WANTED_CRIMINAL' && Array.isArray(item.subjects) && (item.subjects.length === 0 || item.subjects.every(s => s.toLowerCase().includes("assistance") || s.match(/\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\b|\d{4}|,/)))) { // Also check if subjects are just dates/locations
-    if (titleLower.includes('missing')) {
-      classification = 'MISSING_PERSON';
-    } else if (titleLower.includes('seeking information')) {
-      classification = 'SEEKING_INFORMATION';
-    } else if (titleLower.includes('unidentified') || titleLower.includes('jane doe') || titleLower.includes('john doe') || titleLower.includes('victim')) {
-      classification = 'VICTIM_IDENTIFICATION';
-    } else if (descriptionLower.includes('missing person') || detailsLower.includes('missing person')) {
-      classification = 'MISSING_PERSON';
-    } else if (descriptionLower.includes('victim of homicide') || detailsLower.includes('victim of homicide') || descriptionLower.includes('body was found') || detailsLower.includes('body was found')) {
-      classification = 'VICTIM_IDENTIFICATION';
-    } else if (item.subjects.length === 0 && !item.title && !item.description && !item.details) {
-      classification = 'UNSPECIFIED';
+
+        // 7. Final check for ViCAP cases that might still be ambiguously WANTED_CRIMINAL
+        if (classification === 'WANTED_CRIMINAL' && (subjectsLower.includes('vicap') || titleLower.includes('vicap'))) {
+            if (subjectsLower.some(s => s.includes('unidentified')) || titleLower.includes('unidentified') ||
+                subjectsLower.some(s => s.includes('victim')) || titleLower.includes('victim')) {
+                classification = 'UNIDENTIFIED_PERSON'; // Or VICTIM_OF_CRIME if identified
+            } else if (subjectsLower.some(s => s.includes('seeking information')) || titleLower.includes('seeking information')) {
+                classification = 'SEEKING_INFORMATION';
+            }
+        }
+        
+        // 8. If subjects are empty or only contain vague terms/dates and classified as WANTED_CRIMINAL, re-evaluate.
+        if (classification === 'WANTED_CRIMINAL' && Array.isArray(item.subjects) && 
+            (item.subjects.length === 0 || item.subjects.every(s => s.toLowerCase().includes("assistance") || s.match(/\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\b|\d{4}|,/) || /^[A-Za-z\s]+, [A-Za-z\s]+ \w+ \d{4}$/.test(s) ))) {
+            if (titleLower.includes('missing')) {
+                classification = 'MISSING_PERSON';
+            } else if (titleLower.includes('seeking information')) {
+                classification = 'SEEKING_INFORMATION';
+            } else if (titleLower.includes('unidentified') || titleLower.includes('jane doe') || titleLower.includes('john doe')) {
+                classification = 'UNIDENTIFIED_PERSON';
+            } else if (titleLower.includes('victim')) {
+                 classification = 'VICTIM_OF_CRIME';
+            } else if (descriptionLower.includes('missing person') || detailsLower.includes('missing person')) {
+                classification = 'MISSING_PERSON';
+            } else if (descriptionLower.includes('victim of homicide') || detailsLower.includes('victim of homicide') || descriptionLower.includes('body was found') || detailsLower.includes('body was found')) {
+                classification = 'VICTIM_OF_CRIME';
+            } else if (item.subjects.length === 0 && !item.title && !item.description && !item.details) {
+                classification = 'UNSPECIFIED';
+            }
+        }
+
+        // If after all this, it's still UNSPECIFIED (e.g. started as victim, but text didn't confirm), and there are some subjects, assume WANTED_CRIMINAL
+        if (classification === 'UNSPECIFIED' && item.subjects && item.subjects.length > 0) {
+            classification = 'WANTED_CRIMINAL';
+        }
     }
   }
 
 
   // --- Set caseTypeDesc and actualCharges based on final classification ---
   switch (classification) {
+    case 'CAPTURED':
+      caseTypeDesc = `Captured - ${item.title || 'Individual formerly sought'}`;
+      actualCharges = null;
+      break;
+    case 'CYBER_MOST_WANTED':
+      caseTypeDesc = item.title || "Cyber Crime Investigation";
+      actualCharges = item.subjects?.filter(s => s.toLowerCase() !== "cyber's most wanted") || null;
+      if (actualCharges && actualCharges.length === 0) actualCharges = ["Cyber Crimes"];
+      break;
+    case 'CRIMES_AGAINST_CHILDREN':
+      caseTypeDesc = item.title || "Case involving crimes against children";
+      actualCharges = item.subjects?.filter(s => s.toLowerCase() !== "crimes against children") || null;
+       if (actualCharges && actualCharges.length === 0) actualCharges = ["Offenses against children"];
+      break;
     case 'MISSING_PERSON':
-      caseTypeDesc = item.description || item.details || item.remarks || `Missing Person Alert`;
+      caseTypeDesc = item.title || item.description || item.details || item.remarks || `Missing Person Alert`;
       actualCharges = null;
       break;
     case 'SEEKING_INFORMATION':
       caseTypeDesc = item.title || item.description || item.details || "Seeking Public Assistance";
       actualCharges = null;
       break;
-    case 'VICTIM_IDENTIFICATION':
-      caseTypeDesc = item.description || item.details || item.remarks || "Unidentified Person / Victim Case";
+    case 'UNIDENTIFIED_PERSON':
+      caseTypeDesc = item.title || item.description || item.details || item.remarks || "Unidentified Person Case";
+      actualCharges = null;
+      break;
+    case 'VICTIM_OF_CRIME':
+      caseTypeDesc = item.title || item.description || item.details || item.remarks || "Victim of Crime Case";
       actualCharges = null;
       break;
     case 'UNSPECIFIED':
@@ -215,20 +264,17 @@ function normalizeFBIItem(item: FBIWantedItem): WantedPerson {
       actualCharges = null;
       break;
     case 'WANTED_CRIMINAL':
-      // If it's truly a WANTED_CRIMINAL, subjects should be charges.
-      // If subjects were descriptive, they should have been caught by step 6 or earlier logic,
-      // leading to a different classification or this block setting actualCharges to null.
+    default: // Default to WANTED_CRIMINAL if no other classification fits
+      classification = 'WANTED_CRIMINAL'; // Ensure it's explicitly set
       actualCharges = item.subjects && item.subjects.length > 0 ? item.subjects : null;
       caseTypeDesc = item.title || item.description || (actualCharges ? actualCharges.join(' / ') : "Wanted Fugitive");
       
-      // If, after all, subjects are still something like a location/date for a WANTED_CRIMINAL, nullify charges.
-      if (actualCharges && actualCharges.some(s => s.match(/\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\b|\d{4}|,/))) {
-        if(!actualCharges.some(s => s.toLowerCase().includes("murder") || s.toLowerCase().includes("fugitive") || s.toLowerCase().includes("warrant"))) { // Don't nullify if it also has crime keywords
+      if (actualCharges && actualCharges.some(s => s.match(/\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\b|\d{4}|,/) || /^[A-Za-z\s]+, [A-Za-z\s]+ \w+ \d{4}$/.test(s) )) {
+        if(!actualCharges.some(s => s.toLowerCase().includes("murder") || s.toLowerCase().includes("fugitive") || s.toLowerCase().includes("warrant") || s.toLowerCase().includes("unlawful flight"))) {
             actualCharges = null;
             caseTypeDesc = item.title || item.description || "Wanted Fugitive / Case Details Unclear";
         }
       }
-      
       if (!actualCharges || actualCharges.length === 0) {
           actualCharges = null; 
           caseTypeDesc = item.title || item.description || "Wanted for Questioning or Unspecified Offenses";
@@ -236,7 +282,6 @@ function normalizeFBIItem(item: FBIWantedItem): WantedPerson {
       if (!caseTypeDesc) caseTypeDesc = "Wanted Fugitive";
       break;
   }
-
 
   return {
     id: `fbi-${item.uid}`,
@@ -268,6 +313,7 @@ function normalizeFBIItem(item: FBIWantedItem): WantedPerson {
     detailsUrl: `/person/fbi/${item.uid}`,
     classification: classification,
     caseTypeDescription: caseTypeDesc,
+    status: item.status,
   };
 }
 
@@ -276,7 +322,7 @@ export async function getAllFBIWantedData(itemsPerPage: number = 50): Promise<Wa
   console.log('[getAllFBIWantedData] Starting full data fetch from FBI API...');
   let allNormalizedPersons: WantedPerson[] = [];
   let currentPage = 1;
-  const MAX_API_CALLS = 60; 
+  const MAX_API_CALLS = 60; // Increased safety limit
   let apiReportedTotalItems = 0;
   let successfullyFetchedItems = 0;
 
@@ -308,12 +354,12 @@ export async function getAllFBIWantedData(itemsPerPage: number = 50): Promise<Wa
     allNormalizedPersons = allNormalizedPersons.concat(normalizedPageItems);
     successfullyFetchedItems = allNormalizedPersons.length;
 
-    if (apiReportedTotalItems > 0 && successfullyFetchedItems >= apiReportedTotalItems) {
-        console.log(`[getAllFBIWantedData] Fetched ${successfullyFetchedItems} items, which meets or exceeds API reported total of ${apiReportedTotalItems}.`);
-        break;
-    }
-    if (response.items.length < itemsPerPage) {
-        console.log(`[getAllFBIWantedData] API returned ${response.items.length} items (less than pageSize ${itemsPerPage}), assuming last page.`);
+    // Stop if we've fetched all reported items OR if the API returns fewer items than requested (indicating last page)
+    if ((apiReportedTotalItems > 0 && successfullyFetchedItems >= apiReportedTotalItems) || response.items.length < itemsPerPage) {
+        console.log(`[getAllFBIWantedData] Fetched ${successfullyFetchedItems} items. Stopping condition met.`);
+        if (response.items.length < itemsPerPage) {
+             console.log(`[getAllFBIWantedData] API returned ${response.items.length} items (less than pageSize ${itemsPerPage}), assuming last page.`);
+        }
         break;
     }
     if (i === MAX_API_CALLS - 1) { 
@@ -336,7 +382,10 @@ export async function getAllFBIWantedData(itemsPerPage: number = 50): Promise<Wa
 
 // Get details for a single FBI Wanted Person
 export async function getFBIPersonDetails(id: string): Promise<WantedPerson | null> {
-  const allData = await getAllFBIWantedData(200); 
+  // This function might be slow if the ID is not in the first batch,
+  // as it fetches all data. Consider a more targeted API if available for single lookups.
+  // For now, it relies on the full dataset being available.
+  const allData = await getAllFBIWantedData(200); // Fetch a larger batch initially for details page.
   const person = allData.find(p => p.rawId === id);
 
   if (person) return person;

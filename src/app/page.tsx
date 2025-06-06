@@ -1,40 +1,54 @@
 
-import { getAllFBIWantedData } from '@/lib/api'; // Updated import
+import { getAllFBIWantedData } from '@/lib/api'; 
 import type { WantedPerson, PersonClassification } from '@/lib/types';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, ShieldQuestion, UserX, Info, HelpCircle, Users, Activity } from "lucide-react";
+import { 
+  Search, ShieldQuestion, UserX, Info, HelpCircle, Users, Activity, 
+  Laptop, Baby, UserCheck, AlertTriangle, FileText 
+} from "lucide-react";
 import { PaginatedCategoryContent } from '@/components/PaginatedCategoryContent';
 
 export const revalidate = 60 * 60 * 24 * 7; // Revalidate data every 7 days
 
 const classificationTitles: Record<PersonClassification, string> = {
   WANTED_CRIMINAL: "Most Wanted",
+  CYBER_MOST_WANTED: "Cyber's Most Wanted",
+  CRIMES_AGAINST_CHILDREN: "Crimes Against Children",
   MISSING_PERSON: "Missing Persons",
-  VICTIM_IDENTIFICATION: "Unidentified / Victims",
+  UNIDENTIFIED_PERSON: "Unidentified Persons",
+  VICTIM_OF_CRIME: "Victims of Crime",
   SEEKING_INFORMATION: "Seeking Info",
+  CAPTURED: "Captured / Resolved",
   UNSPECIFIED: "Other Cases"
 };
 
 const classificationIcons: Record<PersonClassification, React.ElementType> = {
   WANTED_CRIMINAL: ShieldQuestion,
+  CYBER_MOST_WANTED: Laptop,
+  CRIMES_AGAINST_CHILDREN: Baby,
   MISSING_PERSON: UserX,
-  VICTIM_IDENTIFICATION: Search, // Could also be UserX or a specific victim icon
+  UNIDENTIFIED_PERSON: Search,
+  VICTIM_OF_CRIME: AlertTriangle, 
   SEEKING_INFORMATION: Info,
+  CAPTURED: UserCheck,
   UNSPECIFIED: HelpCircle
 };
 
 const classificationOrder: PersonClassification[] = [
   'WANTED_CRIMINAL',
+  'CYBER_MOST_WANTED',
+  'CRIMES_AGAINST_CHILDREN',
   'MISSING_PERSON',
   'SEEKING_INFORMATION',
-  'VICTIM_IDENTIFICATION',
+  'UNIDENTIFIED_PERSON',
+  'VICTIM_OF_CRIME',
+  'CAPTURED',
   'UNSPECIFIED'
 ];
 
 export default async function HomePage() {
-  // Fetch ALL FBI persons. This might take a moment on first load or after cache expiry.
   const allFBIPersons: WantedPerson[] = await getAllFBIWantedData();
 
   if (!allFBIPersons || allFBIPersons.length === 0) {
@@ -57,14 +71,20 @@ export default async function HomePage() {
     groupedPersons[person.classification]?.push(person);
   });
 
-  const stats = [
-    { title: "Total FBI Alerts", value: allFBIPersons.length, icon: Activity, colorClass: "text-primary" },
-    { title: classificationTitles.WANTED_CRIMINAL, value: groupedPersons.WANTED_CRIMINAL?.length || 0, icon: classificationIcons.WANTED_CRIMINAL, colorClass: "text-destructive" },
-    { title: classificationTitles.MISSING_PERSON, value: groupedPersons.MISSING_PERSON?.length || 0, icon: classificationIcons.MISSING_PERSON, colorClass: "text-yellow-600" },
-    { title: classificationTitles.VICTIM_IDENTIFICATION, value: groupedPersons.VICTIM_IDENTIFICATION?.length || 0, icon: classificationIcons.VICTIM_IDENTIFICATION, colorClass: "text-blue-600" },
-    { title: classificationTitles.SEEKING_INFORMATION, value: groupedPersons.SEEKING_INFORMATION?.length || 0, icon: classificationIcons.SEEKING_INFORMATION, colorClass: "text-green-600" },
-    { title: classificationTitles.UNSPECIFIED, value: groupedPersons.UNSPECIFIED?.length || 0, icon: classificationIcons.UNSPECIFIED, colorClass: "text-slate-600" },
-  ];
+  const stats = classificationOrder.map(cls => ({
+    title: classificationTitles[cls],
+    value: groupedPersons[cls]?.length || 0,
+    icon: classificationIcons[cls],
+    colorClass: cls === 'WANTED_CRIMINAL' || cls === 'CYBER_MOST_WANTED' || cls === 'CRIMES_AGAINST_CHILDREN' ? "text-destructive" 
+              : cls === 'MISSING_PERSON' ? "text-yellow-600" 
+              : cls === 'CAPTURED' ? "text-green-600"
+              : cls === 'UNIDENTIFIED_PERSON' ? "text-blue-600"
+              : cls === 'VICTIM_OF_CRIME' ? "text-orange-600"
+              : "text-primary" 
+  })).filter(stat => stat.value > 0); // Only show stats for categories with data
+
+  const totalAlertsStat = { title: "Total FBI Records Processed", value: allFBIPersons.length, icon: Activity, colorClass: "text-primary" };
+  const displayStats = [totalAlertsStat, ...stats];
   
   const activeClassifications = classificationOrder.filter(
     c => groupedPersons[c] && groupedPersons[c]!.length > 0
@@ -80,7 +100,7 @@ export default async function HomePage() {
       <section className="space-y-6">
         <h2 className="text-2xl font-bold font-headline text-primary text-center">Current Overview (Full Dataset)</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {stats.map((stat) => (
+          {displayStats.map((stat) => (
             <Card key={stat.title} className="shadow-lg hover:shadow-xl transition-shadow duration-300">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-base font-medium text-muted-foreground">{stat.title}</CardTitle>
@@ -88,7 +108,7 @@ export default async function HomePage() {
               </CardHeader>
               <CardContent>
                 <div className="text-4xl font-bold text-primary">{stat.value.toLocaleString()}</div>
-                 {stat.title === "Total FBI Alerts" && <p className="text-xs text-muted-foreground">Reflects all records fetched from the FBI API.</p>}
+                 {stat.title === "Total FBI Records Processed" && <p className="text-xs text-muted-foreground">Reflects all records fetched & processed from the FBI API.</p>}
               </CardContent>
             </Card>
           ))}
@@ -97,7 +117,7 @@ export default async function HomePage() {
       
       {activeClassifications.length > 0 && (
         <Tabs defaultValue={activeClassifications[0]} className="w-full">
-          <TabsList className="grid w-full grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-none lg:flex lg:flex-wrap lg:justify-center gap-1 mb-6">
+          <TabsList className="grid w-full grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:flex lg:flex-wrap lg:justify-center gap-1 mb-6">
             {activeClassifications.map(classification => {
                 const IconComponent = classificationIcons[classification] || HelpCircle;
                 return (
@@ -134,7 +154,7 @@ export default async function HomePage() {
         <AlertTitle className="text-primary font-semibold">Information Source & Purpose</AlertTitle>
         <AlertDescription className="text-foreground/80">
           This platform compiles publicly available information from the FBI.
-          It includes data on wanted individuals, missing persons, unidentified victims, and cases where public information is sought. 
+          It includes data on wanted individuals, missing persons, unidentified victims, victims of crime, and cases where public information is sought. 
           For official inquiries or to report information, please refer directly to the FBI website. 
           This site is for informational awareness only.
         </AlertDescription>

@@ -70,9 +70,13 @@ export interface FBIWantedResponse {
 // Classification Enum
 export type PersonClassification =
   | 'WANTED_CRIMINAL'
+  | 'CYBER_MOST_WANTED'
+  | 'CRIMES_AGAINST_CHILDREN'
   | 'MISSING_PERSON'
-  | 'VICTIM_IDENTIFICATION'
+  | 'UNIDENTIFIED_PERSON'
+  | 'VICTIM_OF_CRIME'
   | 'SEEKING_INFORMATION'
+  | 'CAPTURED'
   | 'UNSPECIFIED';
 
 // Simplified Data Structure for FBI Only
@@ -106,4 +110,6 @@ export interface WantedPerson {
   detailsUrl: string;
   classification: PersonClassification;
   caseTypeDescription?: string | null;
+  status?: string; // To store the original status, e.g., 'captured'
 }
+
