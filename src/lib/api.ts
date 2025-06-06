@@ -11,7 +11,7 @@ import type {
 } from './types';
 
 const FBI_API_BASE_URL = 'https://api.fbi.gov/wanted/v1/list';
-const INTERPOL_API_BASE_URL = 'https://ws-public.interpol.int/notices/v1';
+const INTERPOL_API_BASE_URL = 'https://ws-public.interpol.int/notices/v1/red'; // Alterado para apontar para /red
 
 // Helper to safely fetch JSON
 async function fetchJson<T>(url: string, options: RequestInit = {}): Promise<T | null> {
@@ -34,8 +34,7 @@ async function fetchJson<T>(url: string, options: RequestInit = {}): Promise<T |
         requestHeaders.set(key, value as string);
       }
     }
-    // Ensure Accept is set if somehow missed (e.g. if options.headers tried to clear it)
-    // This is a bit redundant if defaultHeaders defines Accept and options.headers don't override it, but safe.
+    // Ensure Accept is set if somehow missed
     if (!requestHeaders.has('Accept')) {
         requestHeaders.set('Accept', 'application/json');
     }
@@ -44,9 +43,6 @@ async function fetchJson<T>(url: string, options: RequestInit = {}): Promise<T |
       ...options,
       headers: requestHeaders,
     };
-
-    // console.log(`Fetching URL (browser-like headers): ${sanitizedUrl}`);
-    // console.log(`With headers:`, Object.fromEntries(requestHeaders.entries()));
 
     const response = await fetch(sanitizedUrl, requestOptions);
 
@@ -90,20 +86,23 @@ export async function fetchInterpolRedNotices(page: number = 1, resultPerPage: n
     resultPerPage: resultPerPage.toString(),
     page: page.toString(),
   });
-  const url = `${INTERPOL_API_BASE_URL}/red?${params.toString()}`;
+  // Ajustado: INTERPOL_API_BASE_URL já contém /red
+  const url = `${INTERPOL_API_BASE_URL}?${params.toString()}`;
   const data = await fetchJson<InterpolNoticesResponse>(url);
   return data?._embedded?.notices || [];
 }
 
 export async function fetchInterpolNoticeDetail(noticeId: string): Promise<InterpolNotice | null> {
   const formattedNoticeId = noticeId.replace(/\//g, '-');
-  const url = `${INTERPOL_API_BASE_URL}/red/${formattedNoticeId}`;
+  // Ajustado: INTERPOL_API_BASE_URL já contém /red
+  const url = `${INTERPOL_API_BASE_URL}/${formattedNoticeId}`;
   return fetchJson<InterpolNotice>(url);
 }
 
 export async function fetchInterpolNoticeImages(noticeId: string): Promise<InterpolImageDetail[]> {
   const formattedNoticeId = noticeId.replace(/\//g, '-');
-  const url = `${INTERPOL_API_BASE_URL}/red/${formattedNoticeId}/images`;
+  // Ajustado: INTERPOL_API_BASE_URL já contém /red
+  const url = `${INTERPOL_API_BASE_URL}/${formattedNoticeId}/images`;
   const data = await fetchJson<InterpolImagesResponse>(url);
   return data?._embedded?.images || [];
 }
@@ -166,7 +165,7 @@ function normalizeFBIItem(item: FBIWantedItem): CombinedWantedPerson {
     classification = 'VICTIM_IDENTIFICATION';
     caseTypeDesc = item.description || "Unidentified Person";
     actualCharges = null;
-  } else if (Array.isArray(item.subjects) && (item.subjects.length === 0 || item.subjects.every(s => s.toLowerCase().includes("assistance") || s.toLowerCase().includes("information")))) {
+  } else if (Array.isArray(item.subjects) && (item.subjects.length === 0 || item.subjects.every(s => s.toLowerCase().includes("assistance") || s.toLowerCase().includes("information")))){
      if(titleLower.includes("seeking information")){
         classification = 'SEEKING_INFORMATION';
         caseTypeDesc = item.title || "Seeking Information";
@@ -194,7 +193,7 @@ function normalizeFBIItem(item: FBIWantedItem): CombinedWantedPerson {
     nationality: item.nationality ? [item.nationality] : null,
     dateOfBirth: item.dates_of_birth_used?.[0] || null,
     age: item.age_range ? undefined : (item.age_max || item.age_min || undefined),
-    age_range: item.age_range,
+    age_range: Array.isArray(item.age_range) ? item.age_range : (item.age_range ? [String(item.age_range)] : null),
     placeOfBirth: item.place_of_birth,
     height: heightStr,
     weight: item.weight,
@@ -382,3 +381,4 @@ export function mapInterpolColorCodes(codes: string[] | undefined, map: {[key: s
   if (!codes || codes.length === 0) return undefined;
   return codes.map(code => map[code] || code).join(', ');
 }
+
