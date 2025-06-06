@@ -1,3 +1,5 @@
+"use client";
+
 import Image from 'next/image';
 import type { CombinedWantedPerson, FBIWantedItem, InterpolNotice } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
