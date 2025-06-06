@@ -16,23 +16,11 @@ const INTERPOL_API_BASE_URL = 'https://ws-public.interpol.int/notices/v1';
 // Helper to safely fetch JSON
 async function fetchJson<T>(url: string, options?: RequestInit): Promise<T | null> {
   try {
-    // Using minimal headers again
-    const defaultHeaders: HeadersInit = {
-      'Accept': 'application/json',
-    };
-
-    const finalHeaders = {
-      ...defaultHeaders,
-      ...options?.headers,
-    };
-
     // Sanitize URL: remove any trailing colon just in case.
     const sanitizedUrl = url.endsWith(':') ? url.slice(0, -1) : url;
 
-    const response = await fetch(sanitizedUrl, {
-      ...options,
-      headers: finalHeaders,
-    });
+    // Pass options directly, let fetch handle default headers if options.headers is not provided
+    const response = await fetch(sanitizedUrl, options);
 
     if (!response.ok) {
       console.error(`API error for ${sanitizedUrl}: ${response.status} ${response.statusText}`);
@@ -42,7 +30,7 @@ async function fetchJson<T>(url: string, options?: RequestInit): Promise<T | nul
     }
     return response.json() as Promise<T>;
   } catch (error) {
-    console.error(`Network error fetching ${url}:`, error);
+    console.error(`Network error fetching ${url}:`, error); // Log original url for clarity
     return null;
   }
 }
@@ -55,15 +43,13 @@ export async function fetchFBIWantedList(page: number = 1, pageSize: number = 20
     page: page.toString(),
   });
   const url = `${FBI_API_BASE_URL}?${params.toString()}`;
+  // FBI API seems to be more permissive, no explicit headers needed typically beyond default fetch
   const data = await fetchJson<FBIWantedResponse>(url);
   return data?.items || [];
 }
 
 export async function fetchFBIDetail(uid: string): Promise<FBIWantedItem | null> {
-  // Fetching the whole list to find one item is inefficient.
-  // The FBI API does not seem to have a direct GET by UID for v1.
-  // This is a workaround. Consider caching or alternative strategies for production.
-  const list = await fetchFBIWantedList(1, 500); // Attempt to get a large enough list
+  const list = await fetchFBIWantedList(1, 500);
   return list.find(item => item.uid === uid) || null;
 }
 
@@ -75,6 +61,7 @@ export async function fetchInterpolRedNotices(page: number = 1, resultPerPage: n
     page: page.toString(),
   });
   const url = `${INTERPOL_API_BASE_URL}/red?${params.toString()}`;
+  // For Interpol, we're relying on default fetch behavior.
   const data = await fetchJson<InterpolNoticesResponse>(url);
   return data?._embedded?.notices || [];
 }
@@ -97,7 +84,6 @@ export async function fetchInterpolNoticeImages(noticeId: string): Promise<Inter
 function normalizeFBIItem(item: FBIWantedItem): CombinedWantedPerson {
   const fbiImageObjects = item.images || [];
 
-  // Prioritize 'large' or 'original', then 'thumb'
   const prioritizedImages = [
     ...fbiImageObjects.map(img => img.large).filter(Boolean),
     ...fbiImageObjects.map(img => img.original).filter(Boolean),
@@ -106,10 +92,10 @@ function normalizeFBIItem(item: FBIWantedItem): CombinedWantedPerson {
   if (prioritizedImages.length === 0) {
     const thumbs = fbiImageObjects.map(img => img.thumb).filter(Boolean) as string[];
     if (thumbs.length > 0) {
-      prioritizedImages.push(thumbs[0]); // Fallback to first thumb if no large/original
+      prioritizedImages.push(thumbs[0]);
     }
   }
-
+  
   const uniqueImages = Array.from(new Set(prioritizedImages));
   const primaryDisplayImage = uniqueImages.length > 0 ? uniqueImages[0] : `https://placehold.co/300x400.png?text=No+Image`;
 
@@ -167,7 +153,7 @@ function normalizeFBIItem(item: FBIWantedItem): CombinedWantedPerson {
     source: 'fbi',
     name: item.title,
     images: uniqueImages.length > 0 ? uniqueImages : [primaryDisplayImage],
-    thumbnailUrl: primaryDisplayImage, // Use the prioritized image for thumbnail too
+    thumbnailUrl: primaryDisplayImage,
     details: item.details || item.caution,
     remarks: item.remarks,
     warningMessage: item.warning_message,
@@ -204,27 +190,31 @@ function normalizeInterpolItem(item: InterpolNotice, detailedImagesFromApi?: Int
   let primaryImageForDisplay: string | undefined;
   let allImagesForGallery: string[] = [];
 
-  // Prioritize images from the detailed /images endpoint if available
-  if (detailedImagesFromApi && detailedImagesFromApi.length > 0) {
-    primaryImageForDisplay = detailedImagesFromApi[0]?._links?.self?.href; // Use the first image from detailed call
+  if (detailedImagesFromApi && detailedImagesFromApi.length > 0 && detailedImagesFromApi[0]?._links?.self?.href) {
+    primaryImageForDisplay = detailedImagesFromApi[0]._links.self.href;
     allImagesForGallery = detailedImagesFromApi
       .map(img => img._links?.self?.href)
       .filter(Boolean) as string[];
   } else if (item._links?.thumbnail?.href) {
-    // Fallback to the thumbnail from the notice list if no detailed images are fetched (e.g., for card view)
     primaryImageForDisplay = item._links.thumbnail.href;
-    if (primaryImageForDisplay && !primaryImageForDisplay.includes('placehold.co')) {
+     if (primaryImageForDisplay && !primaryImageForDisplay.includes('placehold.co') && !primaryImageForDisplay.includes('No+Image')) {
         allImagesForGallery.push(primaryImageForDisplay);
     }
   }
 
-  // Final fallback to placeholder
   if (!primaryImageForDisplay) {
      primaryImageForDisplay = `https://placehold.co/300x400.png?text=${encodeURIComponent(fullName || 'No Image')}`;
   }
-  if (allImagesForGallery.length === 0) {
-    allImagesForGallery.push(primaryImageForDisplay);
+  // Ensure primary display image is in the gallery if it's a real image
+  if (primaryImageForDisplay && !primaryImageForDisplay.includes('placehold.co') && !allImagesForGallery.includes(primaryImageForDisplay)) {
+    allImagesForGallery.unshift(primaryImageForDisplay); // Add to beginning if not already there
   }
+  if (allImagesForGallery.length === 0 && primaryImageForDisplay) {
+     allImagesForGallery.push(primaryImageForDisplay);
+  }
+  // Remove duplicates just in case
+  allImagesForGallery = Array.from(new Set(allImagesForGallery));
+
 
   let sex = null;
   if (item.sex_id === 'M') sex = 'Male';
@@ -287,7 +277,6 @@ export async function getCombinedWantedList(page: number = 1, pageSize: number =
   if (interpolItems) {
     for (const item of interpolItems) {
       if (item && item.entity_id) {
-        // For the list view, we don't have detailed images yet, so pass undefined
         combinedList.push(normalizeInterpolItem(item, undefined));
       }
     }
