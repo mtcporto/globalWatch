@@ -1,20 +1,23 @@
-import { getFBIPersonDetails } from '@/lib/api'; // Updated import
-import type { WantedPerson } from '@/lib/types'; // Updated import
+
+import { getFBIPersonDetails } from '@/lib/api'; 
+import type { WantedPerson } from '@/lib/types'; 
 import { PersonDetailsCard } from '@/components/PersonDetailsCard';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { UserX } from "lucide-react";
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 
+export const revalidate = 86400; // Revalidate data for this page once a day (24 * 60 * 60 seconds)
+
 interface PersonDetailsPageProps {
   params: {
-    source: 'fbi'; // Source will always be 'fbi' now
+    source: 'fbi'; 
     id: string;
   };
 }
 
 export async function generateMetadata({ params }: PersonDetailsPageProps) {
-  const person = await getFBIPersonDetails(params.id); // Use FBI specific function
+  const person = await getFBIPersonDetails(params.id); 
   if (!person) {
     return { title: 'Person Not Found | Global Watch' };
   }
@@ -25,8 +28,6 @@ export async function generateMetadata({ params }: PersonDetailsPageProps) {
 }
 
 export default async function PersonDetailsPage({ params }: PersonDetailsPageProps) {
-  // The 'source' parameter is still in the path but will always be 'fbi'.
-  // We can simplify by directly calling the FBI-specific function.
   const person = await getFBIPersonDetails(params.id);
 
   if (!person) {
@@ -58,5 +59,3 @@ export default async function PersonDetailsPage({ params }: PersonDetailsPagePro
     </div>
   );
 }
-
-export const revalidate = 3600; // Revalidate data every hour
