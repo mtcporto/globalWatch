@@ -16,22 +16,37 @@ const INTERPOL_API_BASE_URL = 'https://ws-public.interpol.int/notices/v1';
 // Helper to safely fetch JSON
 async function fetchJson<T>(url: string, options: RequestInit = {}): Promise<T | null> {
   try {
-    // Sanitize URL: remove any trailing colon just in case.
+    // Sanitize URL: remove any trailing colon.
     const sanitizedUrl = url.endsWith(':') ? url.slice(0, -1) : url;
 
-    const requestHeaders = new Headers(options.headers);
+    // Define default headers similar to a browser
+    const defaultHeaders: HeadersInit = {
+      'Accept': 'application/json, text/plain, */*', // Broader accept
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+      'Accept-Language': 'en-US,en;q=0.9',
+    };
 
-    // Ensure Accept: application/json is set if not already provided
-    if (!requestHeaders.has('Accept')) {
-      requestHeaders.set('Accept', 'application/json');
+    const requestHeaders = new Headers(options.headers); // Start with headers from options
+
+    // Apply default headers if not overridden by options
+    for (const [key, value] of Object.entries(defaultHeaders)) {
+      if (!requestHeaders.has(key) && value) {
+        requestHeaders.set(key, value as string);
+      }
     }
-    // No explicit User-Agent or Accept-Language by default here
-    // Rely on fetch defaults or what's passed in options for those
+    // Ensure Accept is set if somehow missed (e.g. if options.headers tried to clear it)
+    // This is a bit redundant if defaultHeaders defines Accept and options.headers don't override it, but safe.
+    if (!requestHeaders.has('Accept')) {
+        requestHeaders.set('Accept', 'application/json');
+    }
 
     const requestOptions: RequestInit = {
       ...options,
       headers: requestHeaders,
     };
+
+    // console.log(`Fetching URL (browser-like headers): ${sanitizedUrl}`);
+    // console.log(`With headers:`, Object.fromEntries(requestHeaders.entries()));
 
     const response = await fetch(sanitizedUrl, requestOptions);
 
@@ -103,7 +118,7 @@ function normalizeFBIItem(item: FBIWantedItem): CombinedWantedPerson {
     ...fbiImageObjects.map(img => img.large).filter(Boolean),
     ...fbiImageObjects.map(img => img.original).filter(Boolean),
   ].filter(Boolean) as string[];
-  
+
   // If no 'large' or 'original', use 'thumb' as a last resort.
   if (prioritizedImages.length === 0) {
     const thumbs = fbiImageObjects.map(img => img.thumb).filter(Boolean) as string[];
@@ -111,7 +126,7 @@ function normalizeFBIItem(item: FBIWantedItem): CombinedWantedPerson {
       prioritizedImages.push(thumbs[0]); // Use the first available thumbnail
     }
   }
-  
+
   const uniqueImages = Array.from(new Set(prioritizedImages));
   const primaryDisplayImage = uniqueImages.length > 0 ? uniqueImages[0] : `https://placehold.co/300x400.png?text=No+Image`;
 
@@ -151,7 +166,7 @@ function normalizeFBIItem(item: FBIWantedItem): CombinedWantedPerson {
     classification = 'VICTIM_IDENTIFICATION';
     caseTypeDesc = item.description || "Unidentified Person";
     actualCharges = null;
-  } else if (Array.isArray(item.subjects) && (item.subjects.length === 0 || item.subjects.every(s => s.toLowerCase().includes("assistance") || s.toLowerCase().includes("information")))){
+  } else if (Array.isArray(item.subjects) && (item.subjects.length === 0 || item.subjects.every(s => s.toLowerCase().includes("assistance") || s.toLowerCase().includes("information")))) {
      if(titleLower.includes("seeking information")){
         classification = 'SEEKING_INFORMATION';
         caseTypeDesc = item.title || "Seeking Information";
@@ -162,7 +177,7 @@ function normalizeFBIItem(item: FBIWantedItem): CombinedWantedPerson {
         actualCharges = null;
      }
   }
-  
+
   return {
     id: `fbi-${item.uid}`,
     rawId: item.uid,
@@ -212,12 +227,11 @@ function normalizeInterpolItem(item: InterpolNotice, detailedImagesFromApi?: Int
     allImagesForGallery = detailedImagesFromApi
       .map(img => img._links?.self?.href)
       .filter(Boolean) as string[];
-  } else if (item._links?.thumbnail?.href) { 
+  } else if (item._links?.thumbnail?.href) {
     // Fallback to thumbnail from the notice list if detailed images aren't fetched yet or are unavailable
-    // This thumbnail IS often the main image link for Interpol list items.
     primaryImageForDisplay = item._links.thumbnail.href;
      if (primaryImageForDisplay && !primaryImageForDisplay.includes('placehold.co') && !primaryImageForDisplay.includes('No+Image')) {
-        allImagesForGallery.push(primaryImageForDisplay); 
+        allImagesForGallery.push(primaryImageForDisplay);
     }
   }
 
@@ -225,9 +239,9 @@ function normalizeInterpolItem(item: InterpolNotice, detailedImagesFromApi?: Int
   if (!primaryImageForDisplay) {
      primaryImageForDisplay = `https://placehold.co/300x400.png?text=${encodeURIComponent(fullName || 'No Image')}`;
   }
-  
+
   if (primaryImageForDisplay && !primaryImageForDisplay.includes('placehold.co') && !allImagesForGallery.includes(primaryImageForDisplay)) {
-    allImagesForGallery.unshift(primaryImageForDisplay); 
+    allImagesForGallery.unshift(primaryImageForDisplay);
   }
   if (allImagesForGallery.length === 0 && primaryImageForDisplay && !primaryImageForDisplay.includes('placehold.co')) {
      allImagesForGallery.push(primaryImageForDisplay);
@@ -368,5 +382,3 @@ export function mapInterpolColorCodes(codes: string[] | undefined, map: {[key: s
   if (!codes || codes.length === 0) return undefined;
   return codes.map(code => map[code] || code).join(', ');
 }
-
-    
