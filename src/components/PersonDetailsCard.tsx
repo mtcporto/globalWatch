@@ -1,3 +1,4 @@
+
 "use client";
 
 import Image from 'next/image';
@@ -59,7 +60,11 @@ function DetailItem({ icon: Icon, label, value, isList = false }: DetailItemProp
       <Icon className="h-5 w-5 text-accent mt-1 shrink-0" />
       <div>
         <p className="text-sm font-semibold text-foreground">{label}</p>
-        <p className="text-sm text-muted-foreground">{displayValue}</p>
+        {isList ? (
+          <div className="text-sm text-muted-foreground">{displayValue}</div>
+        ) : (
+          <p className="text-sm text-muted-foreground">{displayValue}</p>
+        )}
       </div>
     </div>
   );
@@ -172,3 +177,4 @@ export function PersonDetailsCard({ person }: { person: CombinedWantedPerson }) 
     </Card>
   );
 }
+
