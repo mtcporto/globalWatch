@@ -1,5 +1,5 @@
 
-import { getFBIWantedListData } from '@/lib/api';
+import { getAllFBIWantedData } from '@/lib/api'; // Updated import
 import type { WantedPerson, PersonClassification } from '@/lib/types';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -34,8 +34,8 @@ const classificationOrder: PersonClassification[] = [
 ];
 
 export default async function HomePage() {
-  // Fetch a larger list for categorization and to populate tabs, e.g., 200 items
-  const allFBIPersons: WantedPerson[] = await getFBIWantedListData(1, 200);
+  // Fetch ALL FBI persons. This might take a moment on first load or after cache expiry.
+  const allFBIPersons: WantedPerson[] = await getAllFBIWantedData();
 
   if (!allFBIPersons || allFBIPersons.length === 0) {
     return (
@@ -58,7 +58,7 @@ export default async function HomePage() {
   });
 
   const stats = [
-    { title: "Total Alerts Fetched (Sample)", value: allFBIPersons.length, icon: Activity, colorClass: "text-primary" },
+    { title: "Total FBI Alerts", value: allFBIPersons.length, icon: Activity, colorClass: "text-primary" },
     { title: classificationTitles.WANTED_CRIMINAL, value: groupedPersons.WANTED_CRIMINAL?.length || 0, icon: classificationIcons.WANTED_CRIMINAL, colorClass: "text-destructive" },
     { title: classificationTitles.MISSING_PERSON, value: groupedPersons.MISSING_PERSON?.length || 0, icon: classificationIcons.MISSING_PERSON, colorClass: "text-yellow-600" },
     { title: classificationTitles.VICTIM_IDENTIFICATION, value: groupedPersons.VICTIM_IDENTIFICATION?.length || 0, icon: classificationIcons.VICTIM_IDENTIFICATION, colorClass: "text-blue-600" },
@@ -89,7 +89,7 @@ export default async function HomePage() {
       </Alert>
 
       <section className="space-y-6">
-        <h2 className="text-2xl font-bold font-headline text-primary text-center">Current Overview (First 200 Records)</h2>
+        <h2 className="text-2xl font-bold font-headline text-primary text-center">Current Overview (Full Dataset)</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {stats.map((stat) => (
             <Card key={stat.title} className="shadow-lg hover:shadow-xl transition-shadow duration-300">
@@ -99,7 +99,7 @@ export default async function HomePage() {
               </CardHeader>
               <CardContent>
                 <div className="text-4xl font-bold text-primary">{stat.value.toLocaleString()}</div>
-                {stat.title === "Total Alerts Fetched (Sample)" && <p className="text-xs text-muted-foreground">Based on the first 200 records from API. Full count may be higher.</p>}
+                 {stat.title === "Total FBI Alerts" && <p className="text-xs text-muted-foreground">Reflects all records fetched from the FBI API.</p>}
               </CardContent>
             </Card>
           ))}
@@ -131,7 +131,7 @@ export default async function HomePage() {
             if (personsInClassification && personsInClassification.length > 0) { 
               return (
                 <TabsContent key={classification} value={classification} className="mt-0 pt-6 border-t">
-                  <PaginatedCategoryContent items={personsInClassification} />
+                  <PaginatedCategoryContent items={personsInClassification} itemsPerPage={25} />
                 </TabsContent>
               );
             }
