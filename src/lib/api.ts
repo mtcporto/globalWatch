@@ -182,24 +182,25 @@ function normalizeFBIItem(item: FBIWantedItem): WantedPerson {
 
 // Fetches all FBI Wanted Persons by paginating through the API.
 export async function getAllFBIWantedData(itemsPerPage: number = 50): Promise<WantedPerson[]> {
+  console.log('[getAllFBIWantedData] Starting full data fetch from FBI API...');
   let allNormalizedPersons: WantedPerson[] = [];
   let currentPage = 1;
-  const MAX_API_CALLS = 60; // Safety net: 60 calls * 50 items/call = 3000 items. FBI total is ~1000-1500.
-  let apiReportedTotalItems = 0; // Total items as reported by the API on the first call
+  const MAX_API_CALLS = 60; // Safety net
+  let apiReportedTotalItems = 0;
   let successfullyFetchedItems = 0;
 
   for (let i = 0; i < MAX_API_CALLS; i++) {
-    // Add delay before fetching, but not for the first call
     if (i > 0) {
-      await delay(500); // Delay for 500 milliseconds
+      // Increased delay to 1 second
+      await delay(1000); 
     }
 
     const response = await fetchSingleFBIPage(currentPage, itemsPerPage);
 
-    if (!response?.items) { // Error or no items structure
-      if (i > 0 && successfullyFetchedItems > 0) { // If not the first call and we already got some data, assume API hiccup and stop.
+    if (!response?.items) {
+      if (i > 0 && successfullyFetchedItems > 0) {
          console.warn(`[getAllFBIWantedData] API call to page ${currentPage} returned no items or error. Stopping further fetches. Total fetched so far: ${successfullyFetchedItems}`);
-      } else { // First call failed or returned no items, critical error.
+      } else {
          console.error(`[getAllFBIWantedData] Critical error fetching page ${currentPage}. No items returned. Aborting.`);
       }
       break; 
@@ -217,15 +218,11 @@ export async function getAllFBIWantedData(itemsPerPage: number = 50): Promise<Wa
     allNormalizedPersons = allNormalizedPersons.concat(normalizedPageItems);
     successfullyFetchedItems = allNormalizedPersons.length;
 
-
-    // Stop conditions
     if (apiReportedTotalItems > 0 && successfullyFetchedItems >= apiReportedTotalItems) {
-        // If we have an API total and we've fetched at least that many distinct, valid persons
         console.log(`[getAllFBIWantedData] Fetched ${successfullyFetchedItems} items, which meets or exceeds API reported total of ${apiReportedTotalItems}.`);
         break;
     }
     if (response.items.length < itemsPerPage) {
-        // If API returned fewer items than requested, it's the last page
         console.log(`[getAllFBIWantedData] API returned ${response.items.length} items (less than pageSize ${itemsPerPage}), assuming last page.`);
         break;
     }
@@ -236,7 +233,6 @@ export async function getAllFBIWantedData(itemsPerPage: number = 50): Promise<Wa
     currentPage++;
   }
   
-  // Deduplicate based on ID, as a final safety measure (though FBI UIDs should be unique)
   const uniquePersons = Array.from(new Map(allNormalizedPersons.map(p => [p.id, p])).values());
   
   if (uniquePersons.length < successfullyFetchedItems) {
@@ -250,29 +246,17 @@ export async function getAllFBIWantedData(itemsPerPage: number = 50): Promise<Wa
 
 // Get details for a single FBI Wanted Person
 export async function getFBIPersonDetails(id: string): Promise<WantedPerson | null> {
-  // For a single detail, we can't rely on getAllFBIWantedData due to caching.
-  // We need a way to fetch just one item if not found in a typical list query.
-  // The FBI API does not have a direct lookup by UID in v1 list endpoint.
-  // We can try to fetch from the path, which sometimes works for direct UIDs.
-  // Example: https://api.fbi.gov/wanted/v1/list/{UID} - THIS IS NOT A VALID ENDPOINT
-  // The official way is to use their main list endpoint or specific subject endpoints.
-  // For now, we'll try fetching a larger initial set and finding it.
-  // This is not ideal but a limitation of the public API.
-
   const allData = await getAllFBIWantedData(200); // Fetch a decent chunk, hoping the ID is within the most recent.
   const person = allData.find(p => p.rawId === id);
 
   if (person) return person;
 
-  // Fallback if not in the first 200 (less likely for active UIDs but possible)
-  // This part could be very slow if the ID is very old.
-  // Consider removing this extended search if it causes performance issues.
-  console.warn(`[getFBIPersonDetails] Person with ID ${id} not found in initial batch. Attempting full scan (can be slow).`);
-  // Re-fetch all data if not found. getAllFBIWantedData should handle its own caching/revalidation if called from page.tsx
-  const fullScanData = await getAllFBIWantedData(50); // This will re-trigger the full fetch with delays
-  const foundPerson = fullScanData.find(p => p.rawId === id);
+  console.warn(`[getFBIPersonDetails] Person with ID ${id} not found in initial batch. Full scan was already attempted by previous call if this is not the first fetch.`);
+  // The previous call to getAllFBIWantedData (likely from page.tsx) should have populated the cache with all data.
+  // If it's not found here, it likely means it's genuinely not in the full dataset or there was an issue fetching.
+  // Avoid re-triggering a full scan from here if getAllFBIWantedData is already comprehensive and cached.
 
-  return foundPerson || null;
+  return null; // If not found after a full scan (cached or fresh), it's not available.
 }
 
 export function getPrimaryImageUrl(person: WantedPerson): string {
@@ -284,4 +268,3 @@ export function getPrimaryImageUrl(person: WantedPerson): string {
   }
   return `https://placehold.co/600x800.png?text=${encodeURIComponent(person.name || 'N/A')}`;
 }
-
