@@ -20,7 +20,7 @@ async function fetchJson<T>(url: string, options?: RequestInit): Promise<T | nul
       ...options,
       headers: {
         'Accept': 'application/json',
-        'User-Agent': 'GlobalWatchApp/1.0 (mailto:support@example.com)', // Added User-Agent
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/97.0.4692.99 Safari/537.36',
         ...options?.headers,
       },
     });
@@ -83,21 +83,18 @@ export async function fetchInterpolNoticeImages(noticeId: string): Promise<Inter
 // Data Normalization
 function normalizeFBIItem(item: FBIWantedItem): CombinedWantedPerson {
   const fbiImageObjects = item.images || [];
-  // Prioritize 'large' then 'original' for images. Avoid 'thumb'.
+  
   const primaryDisplayImage = fbiImageObjects.find(img => img.large)?.large || 
-                              fbiImageObjects.find(img => img.original)?.original || 
-                              fbiImageObjects.find(img => img.thumb)?.thumb || // Fallback to thumb if nothing else
+                              fbiImageObjects.find(img => img.original)?.original ||
+                              fbiImageObjects[0]?.thumb || // Fallback to first thumb if no large/original
                              `https://placehold.co/300x400.png?text=No+Image`;
 
   const allAvailableImages = fbiImageObjects
-    .map(img => img.large || img.original) // Prioritize large/original for gallery
+    .map(img => img.large || img.original || img.thumb) // Use large, then original, then thumb
     .filter(Boolean) as string[];
   
-  // Ensure primaryDisplayImage is in allAvailableImages if it's a valid URL
   const imageSet = new Set(allAvailableImages);
   if (primaryDisplayImage && !primaryDisplayImage.includes('placehold.co') && !imageSet.has(primaryDisplayImage)) {
-    // If primaryDisplayImage was derived from thumb and not in large/original list, add it.
-    // Or if for some reason it was missed.
     allAvailableImages.unshift(primaryDisplayImage);
   }
 
@@ -134,7 +131,20 @@ function normalizeFBIItem(item: FBIWantedItem): CombinedWantedPerson {
     classification = 'VICTIM_IDENTIFICATION'; 
     caseTypeDesc = item.description || "Victim Identification";
     actualCharges = null;
+  } else if (!item.subjects || item.subjects.length === 0 || item.subjects.every(s => s.toLowerCase().includes("assistance") || s.toLowerCase().includes("information"))){
+     // If subjects are empty or only about assistance/information, it might not be a typical "wanted criminal"
+     if(titleLower.includes("seeking information")){
+        classification = 'SEEKING_INFORMATION';
+        caseTypeDesc = item.title || "Seeking Information";
+        actualCharges = null;
+     } else if (titleLower.includes("unidentified") || titleLower.includes("victim") || titleLower.includes("jane doe") || titleLower.includes("john doe")) {
+        classification = 'VICTIM_IDENTIFICATION';
+        caseTypeDesc = item.description || "Unidentified Person";
+        actualCharges = null;
+     }
+     // Default to wanted criminal if no other classification fits, even with limited "subjects"
   }
+
 
   return {
     id: `fbi-${item.uid}`,
@@ -142,7 +152,7 @@ function normalizeFBIItem(item: FBIWantedItem): CombinedWantedPerson {
     source: 'fbi',
     name: item.title,
     images: allAvailableImages.length > 0 ? allAvailableImages : [primaryDisplayImage],
-    thumbnailUrl: primaryDisplayImage, // Use the best available single image for card
+    thumbnailUrl: primaryDisplayImage, 
     details: item.details || item.caution, 
     remarks: item.remarks,
     warningMessage: item.warning_message,
@@ -175,36 +185,30 @@ function normalizeInterpolItem(item: InterpolNotice, detailedImagesFromApi: Inte
   if (item.name) nameParts.push(item.name);
   const fullName = nameParts.join(' ') || 'N/A';
 
-  // For list view, _links.thumbnail.href is the direct image URL.
-  // For detail view, we fetch /images and use _links.self.href from there.
-  const interpolThumbnailDirectFromList = item._links?.thumbnail?.href; // From the main notice list
+  const interpolThumbnailDirectFromList = item._links?.thumbnail?.href;
 
   let primaryImageForDisplay: string | undefined;
   let allImagesForGallery: string[] = [];
 
   if (detailedImagesFromApi && detailedImagesFromApi.length > 0) {
-    // Detail view: Use images from the /images endpoint
     allImagesForGallery = detailedImagesFromApi
-      .map(img => img._links?.self?.href)
+      .map(img => img._links?.self?.href) // Use the self href from the detailed images
       .filter(Boolean) as string[];
-    primaryImageForDisplay = allImagesForGallery[0]; // Prioritize the first image from the detailed fetch
+    primaryImageForDisplay = allImagesForGallery[0];
   }
   
-  // Fallback for primary image if not set from detailed images, or for list view
   if (!primaryImageForDisplay) {
     primaryImageForDisplay = interpolThumbnailDirectFromList;
   }
 
-  // Ensure a placeholder if no valid image URL is found
   if (!primaryImageForDisplay || !primaryImageForDisplay.startsWith('https://')) {
     primaryImageForDisplay = `https://placehold.co/300x400.png?text=No+Image`;
   }
   
-  // Populate gallery images: if detailed images were fetched, use them. Otherwise, use the primary/thumbnail.
   if (allImagesForGallery.length === 0 && primaryImageForDisplay && primaryImageForDisplay.startsWith('https://')) {
     allImagesForGallery.push(primaryImageForDisplay);
   }
-  if (allImagesForGallery.length === 0) { // Ensure placeholder if no images at all
+  if (allImagesForGallery.length === 0) { 
     allImagesForGallery.push(`https://placehold.co/300x400.png?text=No+Image`);
   }
   
@@ -225,7 +229,7 @@ function normalizeInterpolItem(item: InterpolNotice, detailedImagesFromApi: Inte
     firstName: item.forename,
     lastName: item.name,
     images: allImagesForGallery,
-    thumbnailUrl: primaryImageForDisplay, // For card view
+    thumbnailUrl: primaryImageForDisplay,
     details: item.arrest_warrants?.map(aw => `${aw.charge} (Issuing Country: ${aw.issuing_country_id || 'N/A'})`).join('; ') || undefined,
     sex: sex,
     nationality: item.nationalities,
@@ -233,8 +237,8 @@ function normalizeInterpolItem(item: InterpolNotice, detailedImagesFromApi: Inte
     placeOfBirth: item.place_of_birth || item.country_of_birth_id,
     height: heightStr,
     weight: weightStr,
-    eyeColor: item.eyes_colors_id?.join(', '), // Will be mapped by mapInterpolColorCodes in component
-    hairColor: item.hairs_id?.join(', '), // Will be mapped by mapInterpolColorCodes in component
+    eyeColor: item.eyes_colors_id?.join(', '), 
+    hairColor: item.hairs_id?.join(', '), 
     distinguishingMarks: item.distinguishing_marks,
     charges: charges,
     originalData: item,
@@ -245,7 +249,7 @@ function normalizeInterpolItem(item: InterpolNotice, detailedImagesFromApi: Inte
 }
 
 export async function getCombinedWantedList(page: number = 1, pageSize: number = 20): Promise<CombinedWantedPerson[]> {
-  const fbiPageSize = Math.floor(pageSize / 2) + (pageSize % 2);
+  const fbiPageSize = Math.floor(pageSize / 2) + (pageSize % 2); // Prioritize FBI if odd total
   const interpolPageSize = Math.floor(pageSize / 2);
 
   const fbiItemsPromise = fetchFBIWantedList(page, fbiPageSize);
@@ -283,8 +287,8 @@ export async function getPersonDetails(source: 'fbi' | 'interpol', id: string): 
   } else if (source === 'interpol') {
     const item = await fetchInterpolNoticeDetail(id);
     if (item) {
-      const images = await fetchInterpolNoticeImages(id);
-      return normalizeInterpolItem(item, images);
+      const images = await fetchInterpolNoticeImages(id); // This gets the detailed image list
+      return normalizeInterpolItem(item, images); // Pass detailed images here
     }
     return null;
   }
@@ -295,7 +299,7 @@ export function getPrimaryImageUrl(person: CombinedWantedPerson): string {
   if (person.images && person.images.length > 0 && person.images[0] && !person.images[0].includes('placehold.co')) {
     return person.images[0];
   }
-  if (person.thumbnailUrl && !person.thumbnailUrl.includes('placehold.co')) {
+  if (person.thumbnailUrl && !person.thumbnailUrl.includes('placehold.co') && !person.thumbnailUrl.includes('No+Image')) {
     return person.thumbnailUrl;
   }
   return `https://placehold.co/600x800.png?text=${encodeURIComponent(person.name || 'N/A')}`;
@@ -318,3 +322,5 @@ export function mapInterpolColorCodes(codes: string[] | undefined, map: {[key: s
   if (!codes || codes.length === 0) return undefined;
   return codes.map(code => map[code] || code).join(', ');
 }
+
+    
