@@ -16,10 +16,9 @@ const INTERPOL_API_BASE_URL = 'https://ws-public.interpol.int/notices/v1';
 // Helper to safely fetch JSON
 async function fetchJson<T>(url: string, options?: RequestInit): Promise<T | null> {
   try {
-    // Simplified headers: Only explicitly set 'Accept'
-    // Rely on default fetch client behavior for other headers like User-Agent
     const defaultHeaders: HeadersInit = {
       'Accept': 'application/json',
+      'User-Agent': 'GlobalWatch Fetcher/1.0', // Re-added specific User-Agent
     };
 
     const finalHeaders = {
@@ -96,14 +95,11 @@ export async function fetchInterpolNoticeImages(noticeId: string): Promise<Inter
 function normalizeFBIItem(item: FBIWantedItem): CombinedWantedPerson {
   const fbiImageObjects = item.images || [];
   
-  // Prioritize higher quality images over thumbnails
   const prioritizedImages = [
     ...fbiImageObjects.map(img => img.original).filter(Boolean),
     ...fbiImageObjects.map(img => img.large).filter(Boolean),
-    // ...fbiImageObjects.map(img => img.thumb).filter(Boolean) // Thumbnails de-prioritized
   ].filter(Boolean) as string[];
   
-  // If no original or large, then consider thumb as a last resort before placeholder
   if (prioritizedImages.length === 0) {
     const thumbs = fbiImageObjects.map(img => img.thumb).filter(Boolean) as string[];
     if (thumbs.length > 0) {
@@ -112,8 +108,8 @@ function normalizeFBIItem(item: FBIWantedItem): CombinedWantedPerson {
   }
 
   const uniqueImages = Array.from(new Set(prioritizedImages));
-  
   const primaryDisplayImage = uniqueImages.length > 0 ? uniqueImages[0] : `https://placehold.co/300x400.png?text=No+Image`;
+  const bestThumbnail = uniqueImages.length > 0 ? uniqueImages[0] : primaryDisplayImage;
 
 
   let heightStr = null;
@@ -151,7 +147,7 @@ function normalizeFBIItem(item: FBIWantedItem): CombinedWantedPerson {
     classification = 'VICTIM_IDENTIFICATION';
     caseTypeDesc = item.description || "Unidentified Person";
     actualCharges = null;
-  } else if (Array.isArray(item.subjects) && (item.subjects.length === 0 || item.subjects.every(s => s.toLowerCase().includes("assistance") || s.toLowerCase().includes("information")))) {
+  } else if (Array.isArray(item.subjects) && (item.subjects.length === 0 || item.subjects.every(s => s.toLowerCase().includes("assistance") || s.toLowerCase().includes("information")))){
      if(titleLower.includes("seeking information")){
         classification = 'SEEKING_INFORMATION';
         caseTypeDesc = item.title || "Seeking Information";
@@ -163,8 +159,6 @@ function normalizeFBIItem(item: FBIWantedItem): CombinedWantedPerson {
      }
   }
   
-  const bestThumbnail = uniqueImages.length > 0 ? uniqueImages[0] : primaryDisplayImage;
-
   return {
     id: `fbi-${item.uid}`,
     rawId: item.uid,
@@ -208,40 +202,26 @@ function normalizeInterpolItem(item: InterpolNotice, detailedImagesFromApi?: Int
   let primaryImageForDisplay: string | undefined;
   let allImagesForGallery: string[] = [];
 
-  // Prioritize images from the detailed /images endpoint if available
   if (detailedImagesFromApi && detailedImagesFromApi.length > 0 && detailedImagesFromApi[0]?._links?.self?.href) {
     primaryImageForDisplay = detailedImagesFromApi[0]._links.self.href;
     allImagesForGallery = detailedImagesFromApi
       .map(img => img._links?.self?.href)
       .filter(Boolean) as string[];
+  } else if (item._links?.thumbnail?.href) {
+    // Use the notice's thumbnail if no detailed images are available or if it's for the list view
+    primaryImageForDisplay = item._links.thumbnail.href;
   }
   
-  // Fallback to the thumbnail from the notice list if no detailed images were fetched or if primaryImageForDisplay is still undefined
-  // AND ensure this thumbnail is not the one from the /images endpoint's root _links if better images are available
-  if (!primaryImageForDisplay && item._links?.thumbnail?.href) {
-     // Avoid using the general thumbnail if specific, higher-quality images are available from detailedImagesFromApi
-    const generalThumbnailIsDifferent = !detailedImagesFromApi || 
-                                        detailedImagesFromApi.length === 0 || 
-                                        !detailedImagesFromApi.some(img => img._links?.self?.href === item._links?.thumbnail?.href);
-    if (generalThumbnailIsDifferent) {
-      primaryImageForDisplay = item._links.thumbnail.href;
-    }
-  }
-
-  // Further fallback to a placeholder if no image URL could be determined or if detailed images exist but primary is not set
   if (!primaryImageForDisplay && allImagesForGallery.length > 0) {
-    primaryImageForDisplay = allImagesForGallery[0]; // Use the first from the gallery if primary is still not set
+    primaryImageForDisplay = allImagesForGallery[0]; 
   } else if (!primaryImageForDisplay) {
      primaryImageForDisplay = `https://placehold.co/300x400.png?text=${encodeURIComponent(fullName || 'No Image')}`;
   }
   
-  // Ensure allImagesForGallery is populated, even if just with the primary or placeholder
-  if (allImagesForGallery.length === 0) {
-    if (primaryImageForDisplay && !primaryImageForDisplay.includes('placehold.co')) {
-        allImagesForGallery.push(primaryImageForDisplay);
-    } else if (!primaryImageForDisplay.includes('placehold.co')) { // Ensure we don't add placeholder if it's already the primary
-        allImagesForGallery.push(`https://placehold.co/300x400.png?text=${encodeURIComponent(fullName || 'No Image')}`);
-    }
+  if (allImagesForGallery.length === 0 && primaryImageForDisplay && !primaryImageForDisplay.includes('placehold.co')) {
+    allImagesForGallery.push(primaryImageForDisplay);
+  } else if (allImagesForGallery.length === 0) {
+    allImagesForGallery.push(`https://placehold.co/300x400.png?text=${encodeURIComponent(fullName || 'No Image')}`);
   }
   
   let sex = null;
@@ -305,7 +285,8 @@ export async function getCombinedWantedList(page: number = 1, pageSize: number =
   if (interpolItems) {
     for (const item of interpolItems) {
       if (item && item.entity_id) {
-        combinedList.push(normalizeInterpolItem(item)); 
+        // For the list view, we don't have detailed images yet, so pass undefined
+        combinedList.push(normalizeInterpolItem(item, undefined)); 
       }
     }
   }
