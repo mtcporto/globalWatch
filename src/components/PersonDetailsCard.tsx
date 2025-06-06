@@ -67,26 +67,22 @@ export function PersonDetailsCard({ person }: { person: CombinedWantedPerson }) 
   const primaryImage = getPrimaryImageUrl(person);
   const placeholderImage = `https://placehold.co/600x800.png?text=${encodeURIComponent(person.name || 'N/A')}`;
 
-  const [formattedPublicationDate, setFormattedPublicationDate] = useState<string | null>(
-    fbiData?.publication ? fbiData.publication.split("T")[0] : null
-  );
-  const [formattedModifiedDate, setFormattedModifiedDate] = useState<string | null>(
-    fbiData?.modified ? fbiData.modified.split("T")[0] : null
-  );
+  const [formattedPublicationDate, setFormattedPublicationDate] = useState<string | null>(null);
+  const [formattedModifiedDate, setFormattedModifiedDate] = useState<string | null>(null);
 
   useEffect(() => {
     if (fbiData?.publication) {
       try {
         setFormattedPublicationDate(new Date(fbiData.publication).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric'}));
       } catch (e) {
-        // Fallback already set in useState
+        setFormattedPublicationDate(fbiData.publication.split("T")[0]);
       }
     }
     if (fbiData?.modified) {
       try {
         setFormattedModifiedDate(new Date(fbiData.modified).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric'}));
       } catch (e) {
-         // Fallback already set in useState
+        setFormattedModifiedDate(fbiData.modified.split("T")[0]);
       }
     }
   }, [fbiData?.publication, fbiData?.modified]);
@@ -140,7 +136,17 @@ export function PersonDetailsCard({ person }: { person: CombinedWantedPerson }) 
           <h3 className="text-xl font-semibold text-primary mb-3 font-headline">Personal Information</h3>
           <DetailItem icon={User} label="Sex" value={person.sex || (interpolData?.sex_id ? SEX_MAP[interpolData.sex_id] : null)} />
           <DetailItem icon={CalendarDays} label="Date of Birth" value={person.dateOfBirth} />
-          {fbiData?.age_range && <DetailItem icon={CalendarDays} label="Age Range" value={fbiData.age_range.join(' - ')} />}
+          {fbiData?.age_range && (
+            <DetailItem 
+              icon={CalendarDays} 
+              label="Age Range" 
+              value={
+                Array.isArray(fbiData.age_range) 
+                ? fbiData.age_range.join(' - ') 
+                : fbiData.age_range
+              } 
+            />
+          )}
           {person.age && <DetailItem icon={User} label="Age" value={person.age.toString()} />}
           <DetailItem icon={MapPin} label="Place of Birth" value={person.placeOfBirth} />
           <DetailItem icon={Globe} label="Nationality" value={person.nationality?.join(', ')} />
@@ -169,7 +175,6 @@ export function PersonDetailsCard({ person }: { person: CombinedWantedPerson }) 
           )}
           {fbiData?.caution && <DetailItem icon={AlertTriangle} label="Caution" value={fbiData.caution} />}
           {person.warningMessage && <DetailItem icon={AlertTriangle} label="Warning" value={person.warningMessage} />}
-          {/* 'Details' for FBI can be repetitive if already in caseTypeDescription or caution, so ensure it adds new info */}
           {person.details && person.details !== person.caseTypeDescription && person.details !== fbiData?.caution && (
             <DetailItem icon={FileText} label="Further Details" value={person.details} />
           )}
@@ -187,8 +192,8 @@ export function PersonDetailsCard({ person }: { person: CombinedWantedPerson }) 
              <DetailItem icon={MapPin} label="Possible States (FBI)" value={fbiData.possible_states.join(', ')} />
           )}
           {fbiData?.ncic && person.classification === 'WANTED_CRIMINAL' && <DetailItem icon={Fingerprint} label="NCIC" value={fbiData.ncic} />}
-          {fbiData?.publication && formattedPublicationDate && <DetailItem icon={CalendarDays} label="Publication Date (FBI)" value={formattedPublicationDate} />}
-          {fbiData?.modified && formattedModifiedDate && <DetailItem icon={CalendarDays} label="Last Modified (FBI)" value={formattedModifiedDate} />}
+          <DetailItem icon={CalendarDays} label="Publication Date (FBI)" value={formattedPublicationDate || (fbiData?.publication ? fbiData.publication.split("T")[0] : null)} />
+          <DetailItem icon={CalendarDays} label="Last Modified (FBI)" value={formattedModifiedDate || (fbiData?.modified ? fbiData.modified.split("T")[0] : null)} />
         </div>
         
         {person.images && person.images.length > 1 && (

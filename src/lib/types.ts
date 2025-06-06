@@ -37,7 +37,7 @@ export interface FBIWantedItem {
   ncic: string | null;
   age_min: number | null;
   age_max: number | null;
-  age_range: string[] | null; // Changed to string array based on observed data.
+  age_range: string | string[] | null; // Can be a single descriptive string or an array of numbers/strings
   weight: string | null;
   height_min: number | null; // inches
   height_max: number | null; // inches
@@ -72,8 +72,7 @@ export interface InterpolLinks {
   self?: { href: string };
   images?: { href: string };
   thumbnail?: { href: string };
-  // Removed picture as it's not standard for all _links, self is more common for direct resource link
-  notice?: { href: string }; // Added for /images endpoint response
+  notice?: { href: string }; 
 }
 
 export interface InterpolNotice {
@@ -83,7 +82,6 @@ export interface InterpolNotice {
   nationalities?: string[] | null;
   name?: string;
   _links: InterpolLinks;
-  // Interpol detail specific fields
   sex_id?: string; // M, F, U
   country_of_birth_id?: string; // ISO country code
   place_of_birth?: string;
@@ -94,7 +92,7 @@ export interface InterpolNotice {
   distinguishing_marks?: string;
   arrest_warrants?: { charge: string; issuing_country_id: string }[];
   _embedded?: {
-    images?: InterpolImageDetail[]; // This is for the /notices/v1/red/{id} endpoint if it embeds images
+    images?: InterpolImageDetail[]; 
   };
 }
 
@@ -110,21 +108,19 @@ export interface InterpolNoticesResponse {
   _links: InterpolLinks;
 }
 
-// Represents an image object from the /images endpoint's _embedded.images array
 export interface InterpolImageDetail {
   _links: {
-    self: { href: string }; // This is the direct link to the full-resolution image
+    self: { href: string }; 
   };
   picture_id: string;
 }
 
-// Represents the overall response from the /images endpoint
 export interface InterpolImagesResponse {
   _embedded: {
     images: InterpolImageDetail[];
   };
   total: number;
-  _links: InterpolLinks; // May contain self, notice, and potentially a root thumbnail
+  _links: InterpolLinks; 
 }
 
 // Classification Enum
