@@ -16,37 +16,35 @@ const INTERPOL_API_BASE_URL = 'https://ws-public.interpol.int/notices/v1';
 // Helper to safely fetch JSON
 async function fetchJson<T>(url: string, options?: RequestInit): Promise<T | null> {
   try {
-    // Default headers to mimic a standard browser request
-    // APIs, especially those behind WAFs like Akamai/Edgesuite,
-    // often block requests that don't look like they're coming from a browser.
     const defaultHeaders: HeadersInit = {
       'Accept': 'application/json',
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36', // Common browser User-Agent
-      'Accept-Language': 'en-US,en;q=0.9', // Common Accept-Language header
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+      'Accept-Language': 'en-US,en;q=0.9',
     };
 
-    // Merge with any headers passed in options, giving precedence to options?.headers
     const finalHeaders = {
       ...defaultHeaders,
-      ...options?.headers, // Allow overriding if specific options are passed
+      ...options?.headers,
     };
 
-    const response = await fetch(url, {
+    // Sanitize URL: remove any trailing colon just in case.
+    // This is a precaution based on concerns about URL formatting in logs.
+    const sanitizedUrl = url.endsWith(':') ? url.slice(0, -1) : url;
+
+    const response = await fetch(sanitizedUrl, { // Use the sanitized URL
       ...options,
       headers: finalHeaders,
     });
 
     if (!response.ok) {
-      // The colon after ${url} in the log message below is for formatting the log message,
-      // it's not part of the URL that was actually fetched.
-      console.error(`API error for ${url}: ${response.status} ${response.statusText}`);
+      console.error(`API error for ${sanitizedUrl}: ${response.status} ${response.statusText}`); // Log with sanitizedUrl
       const errorBody = await response.text();
       console.error('Error body:', errorBody);
       return null;
     }
     return response.json() as Promise<T>;
   } catch (error) {
-    console.error(`Network error fetching ${url}:`, error);
+    console.error(`Network error fetching ${url}:`, error); // Original URL in catch for broader context
     return null;
   }
 }
@@ -64,12 +62,7 @@ export async function fetchFBIWantedList(page: number = 1, pageSize: number = 20
 }
 
 export async function fetchFBIDetail(uid: string): Promise<FBIWantedItem | null> {
-  // Efficiently fetch a specific item by UID if the API supports it directly
-  // If not, we might need to fetch a larger list and find it, but that's less ideal.
-  // For now, assuming the API might have a direct endpoint or we adjust fetchFBIWantedList.
-  // The current implementation fetches many items which is inefficient for a single detail.
-  // However, if no direct endpoint for a single UID exists, this is a fallback.
-  const list = await fetchFBIWantedList(1, 500); // Try to get a decent number of items
+  const list = await fetchFBIWantedList(1, 500); 
   return list.find(item => item.uid === uid) || null;
 }
 
@@ -103,11 +96,10 @@ export async function fetchInterpolNoticeImages(noticeId: string): Promise<Inter
 function normalizeFBIItem(item: FBIWantedItem): CombinedWantedPerson {
   const fbiImageObjects = item.images || [];
   
-  // Prioritize higher quality images over thumbnails
   const prioritizedImages = [
     ...fbiImageObjects.map(img => img.original),
     ...fbiImageObjects.map(img => img.large),
-    ...fbiImageObjects.map(img => img.thumb) // Thumbnails as last resort
+    ...fbiImageObjects.map(img => img.thumb) 
   ].filter(Boolean) as string[];
 
   const uniqueImages = Array.from(new Set(prioritizedImages));
@@ -208,30 +200,25 @@ function normalizeInterpolItem(item: InterpolNotice, detailedImagesFromApi?: Int
   let allImagesForGallery: string[] = [];
 
   if (detailedImagesFromApi && detailedImagesFromApi.length > 0) {
-    // Prioritize the first image from the detailed images (_embedded.images[0]._links.self.href)
-    // These are generally higher quality than the root _links.thumbnail.href from the images endpoint
     allImagesForGallery = detailedImagesFromApi
       .map(img => img._links?.self?.href)
       .filter(Boolean) as string[];
-    primaryImageForDisplay = allImagesForGallery[0]; // Use the first image from the detailed list
+    if (allImagesForGallery.length > 0) {
+        primaryImageForDisplay = allImagesForGallery[0];
+    }
   }
   
-  // Fallback to the thumbnail from the main notice list if no detailed images were fetched (e.g., for card view)
   if (!primaryImageForDisplay && item._links?.thumbnail?.href) {
     primaryImageForDisplay = item._links.thumbnail.href;
   }
 
-  // Final fallback to placeholder if no image is found
   if (!primaryImageForDisplay || !primaryImageForDisplay.startsWith('https://ws-public.interpol.int/notices/v1/red/')) {
      primaryImageForDisplay = `https://placehold.co/300x400.png?text=${encodeURIComponent(fullName || 'No Image')}`;
   }
   
-  // Populate gallery: if only primary image is set and it's not a placeholder, add it.
-  // If detailed images were fetched, allImagesForGallery is already populated.
   if (allImagesForGallery.length === 0 && primaryImageForDisplay && !primaryImageForDisplay.includes('placehold.co')) {
     allImagesForGallery.push(primaryImageForDisplay);
   }
-  // Ensure gallery has at least a placeholder if completely empty
   if (allImagesForGallery.length === 0) { 
     allImagesForGallery.push(`https://placehold.co/300x400.png?text=${encodeURIComponent(fullName || 'No Image')}`);
   }
@@ -255,7 +242,7 @@ function normalizeInterpolItem(item: InterpolNotice, detailedImagesFromApi?: Int
     firstName: item.forename,
     lastName: item.name,
     images: allImagesForGallery,
-    thumbnailUrl: primaryImageForDisplay, // This will be the list thumbnail or the first detailed image
+    thumbnailUrl: primaryImageForDisplay, 
     details: item.arrest_warrants?.map(aw => `${aw.charge} (Issuing Country: ${aw.issuing_country_id || 'N/A'})`).join('; ') || undefined,
     sex: sex,
     nationality: item.nationalities,
@@ -269,13 +256,12 @@ function normalizeInterpolItem(item: InterpolNotice, detailedImagesFromApi?: Int
     charges: charges,
     originalData: item,
     detailsUrl: `/person/interpol/${item.entity_id.replace('/', '-')}`,
-    classification: 'WANTED_CRIMINAL', // Interpol Red Notices are for wanted individuals
+    classification: 'WANTED_CRIMINAL', 
     caseTypeDescription: charges?.join(' / ') || 'Wanted by Interpol',
   };
 }
 
 export async function getCombinedWantedList(page: number = 1, pageSize: number = 20): Promise<CombinedWantedPerson[]> {
-  // Ensure at least 1 item per source if pageSize is very small, otherwise split
   const fbiPageSize = pageSize <= 1 ? pageSize : Math.max(1, Math.floor(pageSize / 2) + (pageSize % 2)); 
   const interpolPageSize = pageSize <= 1 ? (pageSize > 0 ? 0 : 0) : Math.max(0, Math.floor(pageSize / 2));
 
@@ -298,23 +284,22 @@ export async function getCombinedWantedList(page: number = 1, pageSize: number =
   if (interpolItems) {
     for (const item of interpolItems) {
       if (item && item.entity_id) {
-        // For the list view, we don't fetch detailed images yet to save API calls.
-        // normalizeInterpolItem will use item._links.thumbnail.href for thumbnailUrl.
         combinedList.push(normalizeInterpolItem(item)); 
       }
     }
   }
   
-  // Sort by publication date if available (primarily for FBI), then by name
   return combinedList.sort((a, b) => {
-    const dateA = (a.originalData as FBIWantedItem).publication ? new Date((a.originalData as FBIWantedItem).publication).getTime() : 0;
-    const dateB = (b.originalData as FBIWantedItem).publication ? new Date((b.originalData as FBIWantedItem).publication).getTime() : 0;
+    const dateAValue = (a.originalData as FBIWantedItem).publication;
+    const dateBValue = (b.originalData as FBIWantedItem).publication;
+
+    const dateA = dateAValue ? new Date(dateAValue).getTime() : 0;
+    const dateB = dateBValue ? new Date(dateBValue).getTime() : 0;
     
-    if (dateA && dateB) return dateB - dateA; // Newest first
-    if (dateA) return -1; // FBI items with date first
-    if (dateB) return 1;  // FBI items with date first
+    if (dateA && dateB) return dateB - dateA; 
+    if (dateA) return -1; 
+    if (dateB) return 1;  
     
-    // Fallback for Interpol or items without publication date
     return (a.name || "").localeCompare(b.name || "");
   });
 }
@@ -327,7 +312,6 @@ export async function getPersonDetails(source: 'fbi' | 'interpol', id: string): 
   } else if (source === 'interpol') {
     const item = await fetchInterpolNoticeDetail(id);
     if (item) {
-      // For Interpol details, fetch the dedicated images endpoint
       const images = await fetchInterpolNoticeImages(id); 
       return normalizeInterpolItem(item, images); 
     }
@@ -340,7 +324,6 @@ export function getPrimaryImageUrl(person: CombinedWantedPerson): string {
   if (person.images && person.images.length > 0 && person.images[0] && !person.images[0].includes('placehold.co')) {
     return person.images[0];
   }
-  // This thumbnailUrl should already be the best available for the context (list vs detail)
   if (person.thumbnailUrl && !person.thumbnailUrl.includes('placehold.co') && !person.thumbnailUrl.includes('No+Image')) {
     return person.thumbnailUrl;
   }
@@ -364,3 +347,5 @@ export function mapInterpolColorCodes(codes: string[] | undefined, map: {[key: s
   if (!codes || codes.length === 0) return undefined;
   return codes.map(code => map[code] || code).join(', ');
 }
+
+    
