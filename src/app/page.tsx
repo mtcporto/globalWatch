@@ -4,15 +4,16 @@ import type { WantedPerson, PersonClassification } from '@/lib/types';
 import { WantedCard } from '@/components/WantedCard';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Search, ShieldQuestion, User, UserX, Info, HelpCircle, Users, Activity } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Search, ShieldQuestion, UserX, Info, HelpCircle, Users, Activity } from "lucide-react";
 
 export const revalidate = 3600; // Revalidate data every hour
 
 const classificationTitles: Record<PersonClassification, string> = {
-  WANTED_CRIMINAL: "Most Wanted Criminals",
+  WANTED_CRIMINAL: "Most Wanted",
   MISSING_PERSON: "Missing Persons",
-  VICTIM_IDENTIFICATION: "Unidentified Persons",
-  SEEKING_INFORMATION: "Seeking Information",
+  VICTIM_IDENTIFICATION: "Unidentified",
+  SEEKING_INFORMATION: "Seeking Info",
   UNSPECIFIED: "Other Cases"
 };
 
@@ -33,8 +34,8 @@ const classificationOrder: PersonClassification[] = [
 ];
 
 export default async function HomePage() {
-  // Fetch a larger list for categorization, e.g., 100 items
-  const allFBIPersons: WantedPerson[] = await getFBIWantedListData(1, 100);
+  // Fetch a larger list for categorization and to populate tabs, e.g., 200 items
+  const allFBIPersons: WantedPerson[] = await getFBIWantedListData(1, 200);
 
   if (!allFBIPersons || allFBIPersons.length === 0) {
     return (
@@ -57,14 +58,17 @@ export default async function HomePage() {
   });
 
   const stats = [
-    { title: "Total Alerts", value: allFBIPersons.length, icon: Activity, colorClass: "text-primary" },
+    { title: "Total Alerts Fetched", value: allFBIPersons.length, icon: Activity, colorClass: "text-primary" },
     { title: classificationTitles.WANTED_CRIMINAL, value: groupedPersons.WANTED_CRIMINAL?.length || 0, icon: classificationIcons.WANTED_CRIMINAL, colorClass: "text-destructive" },
     { title: classificationTitles.MISSING_PERSON, value: groupedPersons.MISSING_PERSON?.length || 0, icon: classificationIcons.MISSING_PERSON, colorClass: "text-yellow-600" },
     { title: classificationTitles.VICTIM_IDENTIFICATION, value: groupedPersons.VICTIM_IDENTIFICATION?.length || 0, icon: classificationIcons.VICTIM_IDENTIFICATION, colorClass: "text-blue-600" },
     { title: classificationTitles.SEEKING_INFORMATION, value: groupedPersons.SEEKING_INFORMATION?.length || 0, icon: classificationIcons.SEEKING_INFORMATION, colorClass: "text-green-600" },
     { title: classificationTitles.UNSPECIFIED, value: groupedPersons.UNSPECIFIED?.length || 0, icon: classificationIcons.UNSPECIFIED, colorClass: "text-slate-600" },
   ];
-
+  
+  const activeClassifications = classificationOrder.filter(
+    c => groupedPersons[c] && groupedPersons[c]!.length > 0
+  );
 
   return (
     <div className="space-y-12">
@@ -85,7 +89,7 @@ export default async function HomePage() {
       </Alert>
 
       <section className="space-y-6">
-        <h2 className="text-2xl font-bold font-headline text-primary text-center">Current Overview</h2>
+        <h2 className="text-2xl font-bold font-headline text-primary text-center">Current Overview (First 200 Records)</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {stats.map((stat) => (
             <Card key={stat.title} className="shadow-lg hover:shadow-xl transition-shadow duration-300">
@@ -95,34 +99,54 @@ export default async function HomePage() {
               </CardHeader>
               <CardContent>
                 <div className="text-4xl font-bold text-primary">{stat.value.toLocaleString()}</div>
+                {stat.title === "Total Alerts Fetched" && <p className="text-xs text-muted-foreground">Note: API provides data in pages. Full count may be higher.</p>}
               </CardContent>
             </Card>
           ))}
         </div>
       </section>
+      
+      {activeClassifications.length > 0 && (
+        <Tabs defaultValue={activeClassifications[0]} className="w-full">
+          <TabsList className="grid w-full grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-none lg:flex lg:flex-wrap lg:justify-center gap-1 mb-6">
+            {activeClassifications.map(classification => {
+                const IconComponent = classificationIcons[classification] || HelpCircle;
+                return (
+                  <TabsTrigger 
+                    key={classification} 
+                    value={classification} 
+                    className="px-3 py-1.5 text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                  >
+                    <span className="flex items-center gap-2">
+                      <IconComponent className="h-4 w-4" />
+                      {classificationTitles[classification]} ({groupedPersons[classification]?.length || 0})
+                    </span>
+                  </TabsTrigger>
+                );
+            })}
+          </TabsList>
 
-      {classificationOrder.map(classification => {
-        const personsInClassification = groupedPersons[classification];
-        if (personsInClassification && personsInClassification.length > 0) {
-          const IconComponent = classificationIcons[classification] || HelpCircle;
-          return (
-            <section key={classification} className="space-y-6">
-              <div className="flex items-center gap-3 pb-2 border-b border-primary/20">
-                <IconComponent className="h-7 w-7 text-accent" />
-                <h2 className="text-2xl font-bold font-headline text-primary">
-                  {classificationTitles[classification]} ({personsInClassification.length})
-                </h2>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-                {personsInClassification.map((person) => (
-                  person && person.id ? <WantedCard key={person.id} person={person} /> : null
-                ))}
-              </div>
-            </section>
-          );
-        }
-        return null;
-      })}
+          {activeClassifications.map(classification => {
+            const personsInClassification = groupedPersons[classification];
+            // This check is technically redundant due to activeClassifications filter, but good for safety
+            if (personsInClassification && personsInClassification.length > 0) { 
+              return (
+                <TabsContent key={classification} value={classification} className="mt-0 pt-6 border-t">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+                    {personsInClassification.map((person) => (
+                      person && person.id ? <WantedCard key={person.id} person={person} /> : null
+                    ))}
+                  </div>
+                  {personsInClassification.length === 0 && (
+                     <p className="text-center text-muted-foreground py-8">No individuals found in this category from the current data set.</p>
+                  )}
+                </TabsContent>
+              );
+            }
+            return null;
+          })}
+        </Tabs>
+      )}
     </div>
   );
 }
