@@ -99,7 +99,7 @@ function normalizeFBIItem(item: FBIWantedItem): WantedPerson {
     heightStr = `At least ${feet}'${inches}" (${(item.height_min * 0.0254).toFixed(2)}m)`;
   }
 
-  let classification: PersonClassification = 'UNSPECIFIED'; // Default to UNSPECIFIED
+  let classification: PersonClassification = 'UNSPECIFIED';
   let caseTypeDesc: string | null = item.title || item.subjects?.join(' / ') || item.description;
   let actualCharges: string[] | null = item.subjects || null;
 
@@ -110,9 +110,8 @@ function normalizeFBIItem(item: FBIWantedItem): WantedPerson {
   const detailsLower = item.details?.toLowerCase() || "";
   const descriptionLower = item.description?.toLowerCase() || "";
   const remarksLower = item.remarks?.toLowerCase() || "";
-  const combinedTextLower = `${descriptionLower} ${detailsLower} ${remarksLower}`;
+  const combinedTextLower = `${titleLower} ${descriptionLower} ${detailsLower} ${remarksLower} ${subjectsLower.join(' ')}`;
 
-  // --- Classification Logic ---
 
   // 1. Handle 'captured' status first - this overrides other classifications
   if (item.status?.toLowerCase() === 'captured') {
@@ -130,13 +129,12 @@ function normalizeFBIItem(item: FBIWantedItem): WantedPerson {
         } else if (posterClassLower === 'information' || personClassLower === 'seeking information') {
             classification = 'SEEKING_INFORMATION';
         } else if (posterClassLower === 'victim' || personClassLower === 'victim') {
-            // This is a general victim flag, might be refined later to UNIDENTIFIED or VICTIM_OF_CRIME
-            classification = 'UNSPECIFIED'; // Start as unspecified, let text analysis decide
+            classification = 'UNSPECIFIED'; 
         } else {
-            classification = 'WANTED_CRIMINAL'; // Default if no other strong indicators yet
+            classification = 'WANTED_CRIMINAL';
         }
 
-        // 4. Refine based on keywords in subjects
+        // 4. Refine based on keywords in subjects (if not specifically set)
         if (classification === 'WANTED_CRIMINAL' || classification === 'UNSPECIFIED') {
             if (subjectsLower.some(s => s.includes('vicap missing persons') || s.includes('kidnappings and missing persons') || s.includes('missing person'))) {
                 classification = 'MISSING_PERSON';
@@ -145,7 +143,6 @@ function normalizeFBIItem(item: FBIWantedItem): WantedPerson {
             } else if (subjectsLower.some(s => s.includes('vicap unidentified persons') || s.includes('unidentified human remains'))) {
                 classification = 'UNIDENTIFIED_PERSON';
             } else if (subjectsLower.some(s => s.includes('vicap homicides and sexual assaults') || s.includes('homicide victim') || s.includes('sexual assault victim'))) {
-                 // If title also implies unidentified, it's UNIDENTIFIED_PERSON, otherwise VICTIM_OF_CRIME
                 if (titleLower.includes('unidentified') || titleLower.includes('jane doe') || titleLower.includes('john doe')) {
                     classification = 'UNIDENTIFIED_PERSON';
                 } else {
@@ -154,7 +151,7 @@ function normalizeFBIItem(item: FBIWantedItem): WantedPerson {
             }
         }
 
-        // 5. Refine based on keywords in title (if not already specifically classified)
+        // 5. Refine based on keywords in title (if not specifically set)
         if (classification === 'WANTED_CRIMINAL' || classification === 'UNSPECIFIED') {
             if (titleLower.includes('missing person') || (titleLower.includes('missing') && !titleLower.includes("information for missing"))) {
                 classification = 'MISSING_PERSON';
@@ -171,17 +168,18 @@ function normalizeFBIItem(item: FBIWantedItem): WantedPerson {
         if (combinedTextLower.includes('body was found') ||
             combinedTextLower.includes('victim of homicide') ||
             combinedTextLower.includes('died as a result') ||
+            combinedTextLower.includes('skeletal remains') || // Broader term
             combinedTextLower.includes('suffered blunt force wounds') ||
             combinedTextLower.includes('evidence of strangulation') ||
             (combinedTextLower.includes('cause of death') && !combinedTextLower.includes('seeking information on cause of death'))) {
-            if (titleLower.includes('unidentified') || titleLower.includes('jane doe') || titleLower.includes('john doe') || combinedTextLower.includes('unidentified human remains')) {
+            if (combinedTextLower.includes('unidentified') || combinedTextLower.includes('jane doe') || combinedTextLower.includes('john doe') || combinedTextLower.includes('unidentified human remains')) {
                  classification = 'UNIDENTIFIED_PERSON';
             } else {
                  classification = 'VICTIM_OF_CRIME';
             }
         } else if (combinedTextLower.includes('unidentified person') || combinedTextLower.includes('unidentified human remains') || combinedTextLower.includes('jane doe') || combinedTextLower.includes('john doe')) {
             classification = 'UNIDENTIFIED_PERSON';
-        } else if ((combinedTextLower.includes('was last seen') && (combinedTextLower.includes('disappearance') || combinedTextLower.includes('missing since'))) ||
+        } else if (((combinedTextLower.includes('was last seen') || combinedTextLower.includes('last seen')) && (combinedTextLower.includes('disappearance') || combinedTextLower.includes('missing since') || combinedTextLower.includes('missing from'))) ||
                    (combinedTextLower.includes('missing person') && !titleLower.includes("information for missing"))) {
             classification = 'MISSING_PERSON';
         } else if (classification === 'WANTED_CRIMINAL' && (combinedTextLower.includes('seeking information') || combinedTextLower.includes('information sought') || combinedTextLower.includes('public assistance is requested') || combinedTextLower.includes('anyone with information'))) {
@@ -193,7 +191,7 @@ function normalizeFBIItem(item: FBIWantedItem): WantedPerson {
         if (classification === 'WANTED_CRIMINAL' && (subjectsLower.includes('vicap') || titleLower.includes('vicap'))) {
             if (subjectsLower.some(s => s.includes('unidentified')) || titleLower.includes('unidentified') ||
                 subjectsLower.some(s => s.includes('victim')) || titleLower.includes('victim')) {
-                classification = 'UNIDENTIFIED_PERSON'; // Or VICTIM_OF_CRIME if identified
+                classification = 'UNIDENTIFIED_PERSON';
             } else if (subjectsLower.some(s => s.includes('seeking information')) || titleLower.includes('seeking information')) {
                 classification = 'SEEKING_INFORMATION';
             }
@@ -218,9 +216,9 @@ function normalizeFBIItem(item: FBIWantedItem): WantedPerson {
                 classification = 'UNSPECIFIED';
             }
         }
-
-        // If after all this, it's still UNSPECIFIED (e.g. started as victim, but text didn't confirm), and there are some subjects, assume WANTED_CRIMINAL
-        if (classification === 'UNSPECIFIED' && item.subjects && item.subjects.length > 0) {
+        
+        // If after all this, it's still UNSPECIFIED and there are some subjects, assume WANTED_CRIMINAL
+        if (classification === 'UNSPECIFIED' && item.subjects && item.subjects.length > 0 && !subjectsLower.some(s => s.includes('unidentified') || s.includes('missing') || s.includes('victim') || s.includes('seeking information'))) {
             classification = 'WANTED_CRIMINAL';
         }
     }
@@ -235,7 +233,7 @@ function normalizeFBIItem(item: FBIWantedItem): WantedPerson {
       break;
     case 'CYBER_MOST_WANTED':
       caseTypeDesc = item.title || "Cyber Crime Investigation";
-      actualCharges = item.subjects?.filter(s => s.toLowerCase() !== "cyber's most wanted") || null;
+      actualCharges = item.subjects?.filter(s => s.toLowerCase() !== "cyber's most wanted" && s.toLowerCase() !== "cyber crime") || null;
       if (actualCharges && actualCharges.length === 0) actualCharges = ["Cyber Crimes"];
       break;
     case 'CRIMES_AGAINST_CHILDREN':
@@ -264,19 +262,19 @@ function normalizeFBIItem(item: FBIWantedItem): WantedPerson {
       actualCharges = null;
       break;
     case 'WANTED_CRIMINAL':
-    default: // Default to WANTED_CRIMINAL if no other classification fits
-      classification = 'WANTED_CRIMINAL'; // Ensure it's explicitly set
-      actualCharges = item.subjects && item.subjects.length > 0 ? item.subjects : null;
-      caseTypeDesc = item.title || item.description || (actualCharges ? actualCharges.join(' / ') : "Wanted Fugitive");
+    default: 
+      classification = 'WANTED_CRIMINAL'; 
+      actualCharges = item.subjects && item.subjects.length > 0 ? item.subjects.filter(s => s && !s.match(/^(?:January|February|March|April|May|June|July|August|September|October|November|December)\s\d{1,2},\s\d{4}$/i) && !/^[A-Za-z\s]+, [A-Za-z\s]+(?: \w+ \d{4})?$/.test(s)) : null;
+      if (actualCharges && actualCharges.length === 0) actualCharges = null;
       
-      if (actualCharges && actualCharges.some(s => s.match(/\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\b|\d{4}|,/) || /^[A-Za-z\s]+, [A-Za-z\s]+ \w+ \d{4}$/.test(s) )) {
-        if(!actualCharges.some(s => s.toLowerCase().includes("murder") || s.toLowerCase().includes("fugitive") || s.toLowerCase().includes("warrant") || s.toLowerCase().includes("unlawful flight"))) {
-            actualCharges = null;
-            caseTypeDesc = item.title || item.description || "Wanted Fugitive / Case Details Unclear";
-        }
+      caseTypeDesc = item.title || item.description;
+      if (!caseTypeDesc && actualCharges && actualCharges.length > 0) {
+        caseTypeDesc = actualCharges.join(' / ');
+      } else if (!caseTypeDesc) {
+        caseTypeDesc = "Wanted Fugitive";
       }
-      if (!actualCharges || actualCharges.length === 0) {
-          actualCharges = null; 
+
+      if (!actualCharges) {
           caseTypeDesc = item.title || item.description || "Wanted for Questioning or Unspecified Offenses";
       }
       if (!caseTypeDesc) caseTypeDesc = "Wanted Fugitive";
@@ -322,29 +320,32 @@ export async function getAllFBIWantedData(itemsPerPage: number = 50): Promise<Wa
   console.log('[getAllFBIWantedData] Starting full data fetch from FBI API...');
   let allNormalizedPersons: WantedPerson[] = [];
   let currentPage = 1;
-  const MAX_API_CALLS = 60; // Increased safety limit
+  const MAX_API_CALLS = 60; // Increased safety limit for up to 3000 records with pageSize 50
   let apiReportedTotalItems = 0;
   let successfullyFetchedItems = 0;
+
+  // Ensure itemsPerPage (used as pageSize) does not exceed API max of 50
+  const actualPageSize = Math.min(itemsPerPage, 50);
 
   for (let i = 0; i < MAX_API_CALLS; i++) {
     if (i > 0) {
       await delay(1000); // 1 second delay between calls
     }
 
-    const response = await fetchSingleFBIPage(currentPage, itemsPerPage);
+    const response = await fetchSingleFBIPage(currentPage, actualPageSize);
 
     if (!response?.items) {
       if (i > 0 && successfullyFetchedItems > 0) {
-         console.warn(`[getAllFBIWantedData] API call to page ${currentPage} returned no items or error. Stopping further fetches. Total fetched so far: ${successfullyFetchedItems}`);
+         console.warn(`[getAllFBIWantedData] API call to page ${currentPage} (pageSize: ${actualPageSize}) returned no items or error. Stopping further fetches. Total fetched so far: ${successfullyFetchedItems}`);
       } else {
-         console.error(`[getAllFBIWantedData] Critical error fetching page ${currentPage}. No items returned. Aborting.`);
+         console.error(`[getAllFBIWantedData] Critical error fetching page ${currentPage} (pageSize: ${actualPageSize}). No items returned. Aborting.`);
       }
       break; 
     }
     
     if (i === 0 && response.total) {
         apiReportedTotalItems = response.total;
-        console.log(`[getAllFBIWantedData] FBI API reports a total of ${apiReportedTotalItems} items.`);
+        console.log(`[getAllFBIWantedData] FBI API reports a total of ${apiReportedTotalItems} items. Fetching with pageSize: ${actualPageSize}.`);
     }
 
     const normalizedPageItems = response.items
@@ -355,15 +356,15 @@ export async function getAllFBIWantedData(itemsPerPage: number = 50): Promise<Wa
     successfullyFetchedItems = allNormalizedPersons.length;
 
     // Stop if we've fetched all reported items OR if the API returns fewer items than requested (indicating last page)
-    if ((apiReportedTotalItems > 0 && successfullyFetchedItems >= apiReportedTotalItems) || response.items.length < itemsPerPage) {
+    if ((apiReportedTotalItems > 0 && successfullyFetchedItems >= apiReportedTotalItems) || response.items.length < actualPageSize) {
         console.log(`[getAllFBIWantedData] Fetched ${successfullyFetchedItems} items. Stopping condition met.`);
-        if (response.items.length < itemsPerPage) {
-             console.log(`[getAllFBIWantedData] API returned ${response.items.length} items (less than pageSize ${itemsPerPage}), assuming last page.`);
+        if (response.items.length < actualPageSize) {
+             console.log(`[getAllFBIWantedData] API returned ${response.items.length} items (less than pageSize ${actualPageSize}), assuming last page.`);
         }
         break;
     }
-    if (i === MAX_API_CALLS - 1) { 
-        console.warn(`[getAllFBIWantedData] Reached MAX_API_CALLS limit (${MAX_API_CALLS}). Fetched ${successfullyFetchedItems} items.`);
+    if (i === MAX_API_CALLS - 1 && successfullyFetchedItems < (apiReportedTotalItems || Infinity)) { 
+        console.warn(`[getAllFBIWantedData] Reached MAX_API_CALLS limit (${MAX_API_CALLS}). Fetched ${successfullyFetchedItems} out of ${apiReportedTotalItems || 'unknown total'} items.`);
     }
 
     currentPage++;
@@ -382,15 +383,14 @@ export async function getAllFBIWantedData(itemsPerPage: number = 50): Promise<Wa
 
 // Get details for a single FBI Wanted Person
 export async function getFBIPersonDetails(id: string): Promise<WantedPerson | null> {
-  // This function might be slow if the ID is not in the first batch,
-  // as it fetches all data. Consider a more targeted API if available for single lookups.
-  // For now, it relies on the full dataset being available.
-  const allData = await getAllFBIWantedData(200); // Fetch a larger batch initially for details page.
+  // Call getAllFBIWantedData using its default pageSize (50) to ensure valid API calls.
+  // The function itself is designed to fetch ALL pages.
+  const allData = await getAllFBIWantedData(); 
   const person = allData.find(p => p.rawId === id);
 
   if (person) return person;
 
-  console.warn(`[getFBIPersonDetails] Person with FBI ID ${id} not found in the aggregated list. The API does not support direct lookup by ID for details beyond what's in the list items.`);
+  console.warn(`[getFBIPersonDetails] Person with FBI ID ${id} not found in the aggregated list after full fetch.`);
   return null; 
 }
 
@@ -403,4 +403,5 @@ export function getPrimaryImageUrl(person: WantedPerson): string {
   }
   return `https://placehold.co/600x800.png?text=${encodeURIComponent(person.name || 'N/A')}`;
 }
+
 
