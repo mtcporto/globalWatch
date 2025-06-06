@@ -8,6 +8,9 @@ import type {
 
 const FBI_API_BASE_URL = 'https://api.fbi.gov/wanted/v1/list';
 
+// Helper function to introduce a delay
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 // Helper to safely fetch JSON
 async function fetchJson<T>(url: string, options: RequestInit = {}): Promise<T | null> {
   try {
@@ -186,6 +189,11 @@ export async function getAllFBIWantedData(itemsPerPage: number = 50): Promise<Wa
   let successfullyFetchedItems = 0;
 
   for (let i = 0; i < MAX_API_CALLS; i++) {
+    // Add delay before fetching, but not for the first call
+    if (i > 0) {
+      await delay(500); // Delay for 500 milliseconds
+    }
+
     const response = await fetchSingleFBIPage(currentPage, itemsPerPage);
 
     if (!response?.items) { // Error or no items structure
@@ -260,7 +268,8 @@ export async function getFBIPersonDetails(id: string): Promise<WantedPerson | nu
   // This part could be very slow if the ID is very old.
   // Consider removing this extended search if it causes performance issues.
   console.warn(`[getFBIPersonDetails] Person with ID ${id} not found in initial batch. Attempting full scan (can be slow).`);
-  const fullScanData = await getAllFBIWantedData(50); // This will fetch all, could be cached
+  // Re-fetch all data if not found. getAllFBIWantedData should handle its own caching/revalidation if called from page.tsx
+  const fullScanData = await getAllFBIWantedData(50); // This will re-trigger the full fetch with delays
   const foundPerson = fullScanData.find(p => p.rawId === id);
 
   return foundPerson || null;
@@ -275,3 +284,4 @@ export function getPrimaryImageUrl(person: WantedPerson): string {
   }
   return `https://placehold.co/600x800.png?text=${encodeURIComponent(person.name || 'N/A')}`;
 }
+
