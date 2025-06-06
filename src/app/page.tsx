@@ -6,11 +6,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Search, ShieldQuestion, UserX, Info, HelpCircle, Users, Activity, 
-  Laptop, Baby, UserCheck, AlertTriangle, FileText 
+  Laptop, Baby, UserCheck, AlertTriangle, FileText, UserRoundX, UserRoundSearch
 } from "lucide-react";
 import { PaginatedCategoryContent } from '@/components/PaginatedCategoryContent';
 
-export const revalidate = 60 * 60 * 24 * 7; // Revalidate data every 7 days
+export const revalidate = 604800; // Revalidate data every 7 days (60 * 60 * 24 * 7)
 
 const classificationTitles: Record<PersonClassification, string> = {
   WANTED_CRIMINAL: "Most Wanted",
@@ -28,8 +28,8 @@ const classificationIcons: Record<PersonClassification, React.ElementType> = {
   WANTED_CRIMINAL: ShieldQuestion,
   CYBER_MOST_WANTED: Laptop,
   CRIMES_AGAINST_CHILDREN: Baby,
-  MISSING_PERSON: UserX,
-  UNIDENTIFIED_PERSON: Search,
+  MISSING_PERSON: UserRoundX, // Changed from UserX
+  UNIDENTIFIED_PERSON: UserRoundSearch, // Changed from Search
   VICTIM_OF_CRIME: AlertTriangle, 
   SEEKING_INFORMATION: Info,
   CAPTURED: UserCheck,
@@ -65,10 +65,11 @@ export default async function HomePage() {
 
   const groupedPersons: Partial<Record<PersonClassification, WantedPerson[]>> = {};
   allFBIPersons.forEach(person => {
-    if (!groupedPersons[person.classification]) {
-      groupedPersons[person.classification] = [];
+    const classification = person.classification || 'UNSPECIFIED';
+    if (!groupedPersons[classification]) {
+      groupedPersons[classification] = [];
     }
-    groupedPersons[person.classification]?.push(person);
+    groupedPersons[classification]?.push(person);
   });
 
   const stats = classificationOrder.map(cls => ({
@@ -76,12 +77,11 @@ export default async function HomePage() {
     value: groupedPersons[cls]?.length || 0,
     icon: classificationIcons[cls],
     colorClass: cls === 'WANTED_CRIMINAL' || cls === 'CYBER_MOST_WANTED' || cls === 'CRIMES_AGAINST_CHILDREN' ? "text-destructive" 
-              : cls === 'MISSING_PERSON' ? "text-yellow-600" 
+              : cls === 'MISSING_PERSON' || cls === 'UNIDENTIFIED_PERSON' ? "text-yellow-600" 
               : cls === 'CAPTURED' ? "text-green-600"
-              : cls === 'UNIDENTIFIED_PERSON' ? "text-blue-600"
               : cls === 'VICTIM_OF_CRIME' ? "text-orange-600"
               : "text-primary" 
-  })).filter(stat => stat.value > 0); // Only show stats for categories with data
+  })).filter(stat => stat.value > 0);
 
   const totalAlertsStat = { title: "Total FBI Records Processed", value: allFBIPersons.length, icon: Activity, colorClass: "text-primary" };
   const displayStats = [totalAlertsStat, ...stats];
@@ -98,8 +98,8 @@ export default async function HomePage() {
       </div>
       
       <section className="space-y-6">
-        <h2 className="text-2xl font-bold font-headline text-primary text-center">Current Overview (Full Dataset)</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <h2 className="text-2xl font-bold font-headline text-primary text-center">Current Overview (Full FBI Dataset)</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {displayStats.map((stat) => (
             <Card key={stat.title} className="shadow-lg hover:shadow-xl transition-shadow duration-300">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -117,7 +117,7 @@ export default async function HomePage() {
       
       {activeClassifications.length > 0 && (
         <Tabs defaultValue={activeClassifications[0]} className="w-full">
-          <TabsList className="grid w-full grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:flex lg:flex-wrap lg:justify-center gap-1 mb-6">
+          <TabsList className="grid w-full grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:flex xl:flex-wrap xl:justify-center gap-1 mb-6">
             {activeClassifications.map(classification => {
                 const IconComponent = classificationIcons[classification] || HelpCircle;
                 return (
@@ -162,3 +162,4 @@ export default async function HomePage() {
     </div>
   );
 }
+
