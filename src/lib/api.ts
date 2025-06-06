@@ -14,13 +14,32 @@ const FBI_API_BASE_URL = 'https://api.fbi.gov/wanted/v1/list';
 const INTERPOL_API_BASE_URL = 'https://ws-public.interpol.int/notices/v1';
 
 // Helper to safely fetch JSON
-async function fetchJson<T>(url: string, options?: RequestInit): Promise<T | null> {
+async function fetchJson<T>(url: string, options: RequestInit = {}): Promise<T | null> {
   try {
     // Sanitize URL: remove any trailing colon just in case.
     const sanitizedUrl = url.endsWith(':') ? url.slice(0, -1) : url;
 
-    // Pass options directly, let fetch handle default headers if options.headers is not provided
-    const response = await fetch(sanitizedUrl, options);
+    const defaultHeadersInit: Record<string, string> = {
+      'Accept': 'application/json',
+      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.0.0 Safari/537.36',
+      'Accept-Language': 'en-US,en;q=0.9,es;q=0.8', // Added a common Accept-Language
+    };
+
+    const requestHeaders = new Headers(options.headers);
+
+    // Apply default headers if not already present in options.headers
+    for (const key in defaultHeadersInit) {
+      if (!requestHeaders.has(key)) {
+        requestHeaders.set(key, defaultHeadersInit[key]);
+      }
+    }
+
+    const requestOptions: RequestInit = {
+      ...options,
+      headers: requestHeaders,
+    };
+
+    const response = await fetch(sanitizedUrl, requestOptions);
 
     if (!response.ok) {
       console.error(`API error for ${sanitizedUrl}: ${response.status} ${response.statusText}`);
@@ -43,7 +62,6 @@ export async function fetchFBIWantedList(page: number = 1, pageSize: number = 20
     page: page.toString(),
   });
   const url = `${FBI_API_BASE_URL}?${params.toString()}`;
-  // FBI API seems to be more permissive, no explicit headers needed typically beyond default fetch
   const data = await fetchJson<FBIWantedResponse>(url);
   return data?.items || [];
 }
@@ -61,19 +79,18 @@ export async function fetchInterpolRedNotices(page: number = 1, resultPerPage: n
     page: page.toString(),
   });
   const url = `${INTERPOL_API_BASE_URL}/red?${params.toString()}`;
-  // For Interpol, we're relying on default fetch behavior.
   const data = await fetchJson<InterpolNoticesResponse>(url);
   return data?._embedded?.notices || [];
 }
 
 export async function fetchInterpolNoticeDetail(noticeId: string): Promise<InterpolNotice | null> {
-  const formattedNoticeId = noticeId.replace('/', '-');
+  const formattedNoticeId = noticeId.replace(/\//g, '-');
   const url = `${INTERPOL_API_BASE_URL}/red/${formattedNoticeId}`;
   return fetchJson<InterpolNotice>(url);
 }
 
 export async function fetchInterpolNoticeImages(noticeId: string): Promise<InterpolImageDetail[]> {
-  const formattedNoticeId = noticeId.replace('/', '-');
+  const formattedNoticeId = noticeId.replace(/\//g, '-');
   const url = `${INTERPOL_API_BASE_URL}/red/${formattedNoticeId}/images`;
   const data = await fetchJson<InterpolImagesResponse>(url);
   return data?._embedded?.images || [];
@@ -195,21 +212,21 @@ function normalizeInterpolItem(item: InterpolNotice, detailedImagesFromApi?: Int
     allImagesForGallery = detailedImagesFromApi
       .map(img => img._links?.self?.href)
       .filter(Boolean) as string[];
-  } else if (item._links?.thumbnail?.href) {
+  } else if (item._links?.thumbnail?.href) { // Fallback for list view or if detail images fail
     primaryImageForDisplay = item._links.thumbnail.href;
      if (primaryImageForDisplay && !primaryImageForDisplay.includes('placehold.co') && !primaryImageForDisplay.includes('No+Image')) {
-        allImagesForGallery.push(primaryImageForDisplay);
+        allImagesForGallery.push(primaryImageForDisplay); // Add to gallery if it's a real image
     }
   }
 
   if (!primaryImageForDisplay) {
      primaryImageForDisplay = `https://placehold.co/300x400.png?text=${encodeURIComponent(fullName || 'No Image')}`;
   }
-  // Ensure primary display image is in the gallery if it's a real image
+  // Ensure primary display image is in the gallery if it's a real image and not already there
   if (primaryImageForDisplay && !primaryImageForDisplay.includes('placehold.co') && !allImagesForGallery.includes(primaryImageForDisplay)) {
-    allImagesForGallery.unshift(primaryImageForDisplay); // Add to beginning if not already there
+    allImagesForGallery.unshift(primaryImageForDisplay); 
   }
-  if (allImagesForGallery.length === 0 && primaryImageForDisplay) {
+  if (allImagesForGallery.length === 0 && primaryImageForDisplay && !primaryImageForDisplay.includes('placehold.co')) {
      allImagesForGallery.push(primaryImageForDisplay);
   }
   // Remove duplicates just in case
@@ -228,13 +245,13 @@ function normalizeInterpolItem(item: InterpolNotice, detailedImagesFromApi?: Int
   const charges = item.arrest_warrants?.map(aw => aw.charge);
 
   return {
-    id: `interpol-${item.entity_id.replace('/', '-')}`,
+    id: `interpol-${item.entity_id.replace(/\//g, '-')}`,
     rawId: item.entity_id,
     source: 'interpol',
     name: fullName,
     firstName: item.forename,
     lastName: item.name,
-    images: allImagesForGallery,
+    images: allImagesForGallery.length > 0 ? allImagesForGallery : [primaryImageForDisplay],
     thumbnailUrl: primaryImageForDisplay,
     details: item.arrest_warrants?.map(aw => `${aw.charge} (Issuing Country: ${aw.issuing_country_id || 'N/A'})`).join('; ') || undefined,
     sex: sex,
@@ -248,7 +265,7 @@ function normalizeInterpolItem(item: InterpolNotice, detailedImagesFromApi?: Int
     distinguishingMarks: item.distinguishing_marks,
     charges: charges,
     originalData: item,
-    detailsUrl: `/person/interpol/${item.entity_id.replace('/', '-')}`,
+    detailsUrl: `/person/interpol/${item.entity_id.replace(/\//g, '-')}`,
     classification: 'WANTED_CRIMINAL',
     caseTypeDescription: charges?.join(' / ') || 'Wanted by Interpol',
   };
@@ -340,5 +357,3 @@ export function mapInterpolColorCodes(codes: string[] | undefined, map: {[key: s
   if (!codes || codes.length === 0) return undefined;
   return codes.map(code => map[code] || code).join(', ');
 }
-
-    
