@@ -19,7 +19,7 @@ async function fetchJson<T>(url: string, options?: RequestInit): Promise<T | nul
       ...options,
       headers: {
         'Accept': 'application/json',
-        // 'User-Agent': 'GlobalWatchApp/1.0 (+https://your-app-url.com/bot.html)' // Good practice
+        'User-Agent': 'GlobalWatchApp/1.0', // Added User-Agent
         ...options?.headers,
       },
     });
