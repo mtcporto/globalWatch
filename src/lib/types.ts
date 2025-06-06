@@ -72,7 +72,8 @@ export interface InterpolLinks {
   self?: { href: string };
   images?: { href: string };
   thumbnail?: { href: string };
-  picture?: { href: string }; // For detailed images
+  // Removed picture as it's not standard for all _links, self is more common for direct resource link
+  notice?: { href: string }; // Added for /images endpoint response
 }
 
 export interface InterpolNotice {
@@ -93,7 +94,7 @@ export interface InterpolNotice {
   distinguishing_marks?: string;
   arrest_warrants?: { charge: string; issuing_country_id: string }[];
   _embedded?: {
-    images?: InterpolImageDetail[];
+    images?: InterpolImageDetail[]; // This is for the /notices/v1/red/{id} endpoint if it embeds images
   };
 }
 
@@ -109,20 +110,21 @@ export interface InterpolNoticesResponse {
   _links: InterpolLinks;
 }
 
+// Represents an image object from the /images endpoint's _embedded.images array
 export interface InterpolImageDetail {
   _links: {
-    self?: { href: string }; // Made optional
-    picture: { href: string };
+    self: { href: string }; // This is the direct link to the full-resolution image
   };
-  _embedded?: any;
-  picture_id: string; // numeric string
+  picture_id: string;
 }
 
+// Represents the overall response from the /images endpoint
 export interface InterpolImagesResponse {
   _embedded: {
     images: InterpolImageDetail[];
   };
   total: number;
+  _links: InterpolLinks; // May contain self, notice, and potentially a root thumbnail
 }
 
 // Classification Enum
