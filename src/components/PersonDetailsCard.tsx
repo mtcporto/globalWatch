@@ -2,12 +2,12 @@
 "use client";
 
 import Image from 'next/image';
-import type { CombinedWantedPerson, FBIWantedItem, InterpolNotice } from '@/lib/types';
+import type { WantedPerson, FBIWantedItem } from '@/lib/types'; // Updated import
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { getPrimaryImageUrl, SEX_MAP, HAIR_COLOR_MAP, EYE_COLOR_MAP, mapInterpolColorCodes } from '@/lib/api';
+import { getPrimaryImageUrl } from '@/lib/api';
 import {
-  AlertTriangle, Award, Briefcase, CalendarDays, FileText, Globe, MapPin, User, Users, Fingerprint, Scale, Languages, UserMinus, Info, Search, ShieldQuestion
+  AlertTriangle, Award, Briefcase, CalendarDays, FileText, Globe, MapPin, User, Users, Fingerprint, Scale, Languages, UserMinus, Info, Search, ShieldQuestion, HelpCircle
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
@@ -60,9 +60,8 @@ function DetailItem({ icon: Icon, label, value, isList = false }: DetailItemProp
 }
 
 
-export function PersonDetailsCard({ person }: { person: CombinedWantedPerson }) {
-  const fbiData = person.source === 'fbi' ? person.originalData as FBIWantedItem : null;
-  const interpolData = person.source === 'interpol' ? person.originalData as InterpolNotice : null;
+export function PersonDetailsCard({ person }: { person: WantedPerson }) {
+  const fbiData = person.originalData as FBIWantedItem; // Data is always FBI
 
   const primaryImage = getPrimaryImageUrl(person);
   const placeholderImage = `https://placehold.co/600x800.png?text=${encodeURIComponent(person.name || 'N/A')}`;
@@ -88,18 +87,19 @@ export function PersonDetailsCard({ person }: { person: CombinedWantedPerson }) 
   }, [fbiData?.publication, fbiData?.modified]);
 
   const getClassificationBadge = () => {
+    const baseClasses = "mb-2 flex items-center gap-1 text-sm py-1 px-2";
     switch(person.classification) {
       case 'MISSING_PERSON':
-        return <Badge variant="secondary" className="mb-2 bg-yellow-500 text-black flex items-center gap-1 text-sm py-1 px-2"><UserMinus className="mr-1 h-4 w-4"/>Missing Person</Badge>;
+        return <Badge variant="secondary" className={`${baseClasses} bg-yellow-500 text-black`}><UserMinus className="mr-1 h-4 w-4"/>Missing Person</Badge>;
       case 'VICTIM_IDENTIFICATION':
-        return <Badge variant="secondary" className="mb-2 bg-blue-400 text-black flex items-center gap-1 text-sm py-1 px-2"><Search className="mr-1 h-4 w-4"/>Unidentified Person</Badge>;
+        return <Badge variant="secondary" className={`${baseClasses} bg-blue-400 text-black`}><Search className="mr-1 h-4 w-4"/>Unidentified Person</Badge>;
       case 'SEEKING_INFORMATION':
-        return <Badge variant="secondary" className="mb-2 bg-green-500 text-white flex items-center gap-1 text-sm py-1 px-2"><Info className="mr-1 h-4 w-4"/>Seeking Information</Badge>;
+        return <Badge variant="secondary" className={`${baseClasses} bg-green-500 text-white`}><Info className="mr-1 h-4 w-4"/>Seeking Information</Badge>;
       case 'WANTED_CRIMINAL':
+        return <Badge variant='destructive' className={`${baseClasses}`}><ShieldQuestion className="mr-1 h-4 w-4"/> FBI ID: {person.rawId}</Badge>;
+      case 'UNSPECIFIED':
       default:
-        return <Badge variant={person.source === 'fbi' ? 'destructive' : 'default'} className="mb-2 text-sm py-1 px-2">
-                 <ShieldQuestion className="mr-1 h-4 w-4"/> {person.source.toUpperCase()} ID: {person.rawId}
-               </Badge>;
+        return <Badge variant='default' className={`${baseClasses} bg-gray-500 text-white`}><HelpCircle className="mr-1 h-4 w-4"/> FBI Alert (ID: {person.rawId})</Badge>;
     }
   };
 
@@ -114,14 +114,13 @@ export function PersonDetailsCard({ person }: { person: CombinedWantedPerson }) 
               layout="fill"
               objectFit="cover"
               data-ai-hint="person portrait"
-              unoptimized={person.source === 'interpol'}
               onError={(e) => { (e.target as HTMLImageElement).src = placeholderImage; }}
             />
           </div>
           <div className="flex-1">
             {getClassificationBadge()}
             <CardTitle className="text-3xl font-headline mb-2">{person.name || 'N/A'}</CardTitle>
-            {person.classification === 'WANTED_CRIMINAL' && person.aliases && person.aliases.length > 0 && (
+            {(person.classification === 'WANTED_CRIMINAL' || person.classification === 'UNSPECIFIED') && person.aliases && person.aliases.length > 0 && (
                <CardDescription className="text-md text-accent mb-1">Aliases: {person.aliases.join(', ')}</CardDescription>
             )}
             <CardDescription className="text-lg text-muted-foreground">
@@ -134,7 +133,7 @@ export function PersonDetailsCard({ person }: { person: CombinedWantedPerson }) 
       <CardContent className="p-6 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
         <div className="space-y-2">
           <h3 className="text-xl font-semibold text-primary mb-3 font-headline">Personal Information</h3>
-          <DetailItem icon={User} label="Sex" value={person.sex || (interpolData?.sex_id ? SEX_MAP[interpolData.sex_id] : null)} />
+          <DetailItem icon={User} label="Sex" value={person.sex} />
           <DetailItem icon={CalendarDays} label="Date of Birth" value={person.dateOfBirth} />
           {fbiData?.age_range && (
             <DetailItem 
@@ -143,7 +142,7 @@ export function PersonDetailsCard({ person }: { person: CombinedWantedPerson }) 
               value={
                 Array.isArray(fbiData.age_range) 
                 ? fbiData.age_range.join(' - ') 
-                : fbiData.age_range
+                : String(fbiData.age_range) // Ensure it's a string if not an array
               } 
             />
           )}
@@ -151,7 +150,6 @@ export function PersonDetailsCard({ person }: { person: CombinedWantedPerson }) 
           <DetailItem icon={MapPin} label="Place of Birth" value={person.placeOfBirth} />
           <DetailItem icon={Globe} label="Nationality" value={person.nationality?.join(', ')} />
           {fbiData?.race && <DetailItem icon={Users} label="Race" value={fbiData.race} />}
-          {interpolData?.country_of_birth_id && <DetailItem icon={MapPin} label="Country of Birth" value={interpolData.country_of_birth_id} />}
           {fbiData?.languages && fbiData.languages.length > 0 && <DetailItem icon={Languages} label="Languages" value={fbiData.languages.join(', ')} />}
         </div>
 
@@ -159,8 +157,8 @@ export function PersonDetailsCard({ person }: { person: CombinedWantedPerson }) 
           <h3 className="text-xl font-semibold text-primary mb-3 font-headline">Physical Description</h3>
           <DetailItem icon={User} label="Height" value={person.height} />
           <DetailItem icon={User} label="Weight" value={person.weight} />
-          <DetailItem icon={User} label="Hair Color" value={person.hairColor || mapInterpolColorCodes(interpolData?.hairs_id, HAIR_COLOR_MAP)} />
-          <DetailItem icon={User} label="Eye Color" value={person.eyeColor || mapInterpolColorCodes(interpolData?.eyes_colors_id, EYE_COLOR_MAP)} />
+          <DetailItem icon={User} label="Hair Color" value={person.hairColor} />
+          <DetailItem icon={User} label="Eye Color" value={person.eyeColor} />
           {fbiData?.build && <DetailItem icon={User} label="Build" value={fbiData.build} />}
           {fbiData?.complexion && <DetailItem icon={User} label="Complexion" value={fbiData.complexion} />}
           <DetailItem icon={Fingerprint} label="Scars & Marks / Distinguishing Marks" value={person.distinguishingMarks} />
@@ -170,15 +168,17 @@ export function PersonDetailsCard({ person }: { person: CombinedWantedPerson }) 
            <h3 className="text-xl font-semibold text-primary mb-3 font-headline">
             {person.classification === 'WANTED_CRIMINAL' ? "Case Information" : "Case Details"}
           </h3>
-          {person.classification === 'WANTED_CRIMINAL' && person.charges && person.charges.length > 0 && (
-             <DetailItem icon={Scale} label="Charges" value={person.charges} isList />
+          {(person.classification === 'WANTED_CRIMINAL' || person.classification === 'UNSPECIFIED') && person.charges && person.charges.length > 0 && (
+             <DetailItem icon={Scale} label="Charges/Subjects" value={person.charges} isList />
           )}
           {fbiData?.caution && <DetailItem icon={AlertTriangle} label="Caution" value={fbiData.caution} />}
           {person.warningMessage && <DetailItem icon={AlertTriangle} label="Warning" value={person.warningMessage} />}
           {person.details && person.details !== person.caseTypeDescription && person.details !== fbiData?.caution && (
             <DetailItem icon={FileText} label="Further Details" value={person.details} />
           )}
-          {person.remarks && <DetailItem icon={FileText} label="Remarks" value={person.remarks} />}
+           {person.remarks && (
+            <DetailItem icon={FileText} label="Remarks" value={person.remarks} />
+          )}
           {fbiData?.additional_information && <DetailItem icon={FileText} label="Additional Information (FBI)" value={fbiData.additional_information} />}
           {person.rewardText && <DetailItem icon={Award} label="Reward" value={person.rewardText} />}
           
@@ -191,7 +191,7 @@ export function PersonDetailsCard({ person }: { person: CombinedWantedPerson }) 
           {fbiData?.possible_states && fbiData.possible_states.length > 0 && (
              <DetailItem icon={MapPin} label="Possible States (FBI)" value={fbiData.possible_states.join(', ')} />
           )}
-          {fbiData?.ncic && person.classification === 'WANTED_CRIMINAL' && <DetailItem icon={Fingerprint} label="NCIC" value={fbiData.ncic} />}
+          {fbiData?.ncic && (person.classification === 'WANTED_CRIMINAL' || person.classification === 'UNSPECIFIED') && <DetailItem icon={Fingerprint} label="NCIC" value={fbiData.ncic} />}
           <DetailItem icon={CalendarDays} label="Publication Date (FBI)" value={formattedPublicationDate || (fbiData?.publication ? fbiData.publication.split("T")[0] : null)} />
           <DetailItem icon={CalendarDays} label="Last Modified (FBI)" value={formattedModifiedDate || (fbiData?.modified ? fbiData.modified.split("T")[0] : null)} />
         </div>
@@ -208,7 +208,6 @@ export function PersonDetailsCard({ person }: { person: CombinedWantedPerson }) 
                     layout="fill"
                     objectFit="cover"
                     data-ai-hint="person portrait"
-                    unoptimized={person.source === 'interpol'}
                     onError={(e) => { (e.target as HTMLImageElement).src = `https://placehold.co/300x300.png?text=Image+Error`; }}
                   />
                 </div>

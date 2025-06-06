@@ -3,43 +3,42 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import type { CombinedWantedPerson } from '@/lib/types';
+import type { WantedPerson } from '@/lib/types'; // Updated import
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Globe, Building, UserMinus, Info, Search, ShieldAlert } from 'lucide-react';
+import { Building, UserMinus, Info, Search, ShieldAlert, HelpCircle } from 'lucide-react';
 
-export function WantedCard({ person }: { person: CombinedWantedPerson }) {
+export function WantedCard({ person }: { person: WantedPerson }) {
   const placeholderImage = `https://placehold.co/300x400.png?text=${encodeURIComponent(person.name || 'N/A')}`;
 
   let cardDescription = person.caseTypeDescription || 'Details not available.';
-  // For wanted criminals, prioritize actual charges if available
   if (person.classification === 'WANTED_CRIMINAL' && person.charges && person.charges.length > 0) {
     cardDescription = person.charges.join(', ');
   }
 
 
-  const getSourceBadge = () => {
+  const getClassificationBadge = () => {
     switch(person.classification) {
       case 'MISSING_PERSON':
-        return <Badge variant="secondary" className="absolute top-2 right-2 bg-yellow-500 text-black flex items-center gap-1"><UserMinus className="h-3 w-3"/>Missing</Badge>;
+        return <Badge variant="secondary" className="absolute top-2 right-2 bg-yellow-500 text-black flex items-center gap-1 text-xs py-0.5 px-1.5"><UserMinus className="h-3 w-3"/>Missing</Badge>;
       case 'VICTIM_IDENTIFICATION':
-        return <Badge variant="secondary" className="absolute top-2 right-2 bg-blue-400 text-black flex items-center gap-1"><Search className="h-3 w-3"/>Unidentified</Badge>;
+        return <Badge variant="secondary" className="absolute top-2 right-2 bg-blue-400 text-black flex items-center gap-1 text-xs py-0.5 px-1.5"><Search className="h-3 w-3"/>Unidentified</Badge>;
       case 'SEEKING_INFORMATION':
-        return <Badge variant="secondary" className="absolute top-2 right-2 bg-green-500 text-white flex items-center gap-1"><Info className="h-3 w-3"/>Seeking Info</Badge>;
+        return <Badge variant="secondary" className="absolute top-2 right-2 bg-green-500 text-white flex items-center gap-1 text-xs py-0.5 px-1.5"><Info className="h-3 w-3"/>Seeking Info</Badge>;
       case 'WANTED_CRIMINAL':
-      default:
+      default: // Also covers UNSPECIFIED if it somehow appears before specific badge logic
         return <Badge 
-                  variant={person.source === 'fbi' ? 'destructive' : 'default'} 
-                  className="absolute top-2 right-2"
+                  variant='destructive' // FBI is typically red/destructive
+                  className="absolute top-2 right-2 text-xs py-0.5 px-1.5"
                 >
-                  {person.source.toUpperCase()}
+                  FBI MOST WANTED
                 </Badge>;
     }
   };
   
   return (
     <Link href={person.detailsUrl} legacyBehavior>
-      <a className="block hover:shadow-lg transition-shadow duration-200 rounded-lg">
+      <a className="block hover:shadow-lg transition-shadow duration-200 rounded-lg h-full">
         <Card className="h-full flex flex-col overflow-hidden transform hover:scale-105 transition-transform duration-200">
           <CardHeader className="p-0 relative">
             <div className="aspect-[3/4] w-full relative">
@@ -50,57 +49,45 @@ export function WantedCard({ person }: { person: CombinedWantedPerson }) {
                 objectFit="cover"
                 className="bg-muted"
                 data-ai-hint="person portrait"
-                unoptimized={person.source === 'interpol'}
                 onError={(e) => {
                   (e.target as HTMLImageElement).src = placeholderImage;
                 }}
               />
             </div>
-            {getSourceBadge()}
+            {getClassificationBadge()}
           </CardHeader>
           <CardContent className="p-4 flex-grow flex flex-col justify-between">
             <div>
               <CardTitle className="text-lg font-headline mb-1 truncate" title={person.name || 'N/A'}>
                 {person.name || 'N/A'}
               </CardTitle>
-              <CardDescription className="text-sm text-muted-foreground mb-2 line-clamp-3">
+              <CardDescription className="text-sm text-muted-foreground mb-2 line-clamp-3" title={cardDescription}>
                 {cardDescription}
               </CardDescription>
             </div>
             <div className="mt-2 flex items-center text-xs text-muted-foreground">
-              {person.source === 'fbi' && person.fieldOffices?.[0] && person.classification === 'WANTED_CRIMINAL' && (
-                <>
-                  <Building className="h-3 w-3 mr-1" />
-                  <span>{person.fieldOffices[0]}</span>
-                </>
+              {person.fieldOffices?.[0] && (
+                 <span className="flex items-center truncate" title={person.fieldOffices[0]}>
+                    <Building className="h-3 w-3 mr-1 flex-shrink-0" />
+                    {person.fieldOffices[0]}
+                 </span>
               )}
-              {person.source === 'interpol' && person.nationality?.[0] && person.classification === 'WANTED_CRIMINAL' && (
-                <>
-                  <Globe className="h-3 w-3 mr-1" />
-                  <span>{person.nationality[0]}</span>
-                </>
+              {/* Display a generic icon if no field office and it's not a specific other classification */}
+              {!person.fieldOffices?.[0] && person.classification === 'WANTED_CRIMINAL' && (
+                <span className="flex items-center"><ShieldAlert className="h-3 w-3 mr-1 text-primary/70"/> FBI Case</span>
               )}
-               {person.classification === 'MISSING_PERSON' && (
-                <>
-                  <UserMinus className="h-3 w-3 mr-1 text-yellow-600" />
-                  <span>Missing Person</span>
-                </>
+              {!person.fieldOffices?.[0] && person.classification === 'MISSING_PERSON' && (
+                <span className="flex items-center"><UserMinus className="h-3 w-3 mr-1 text-yellow-600"/> Missing Person</span>
               )}
-              {person.classification === 'SEEKING_INFORMATION' && (
-                <>
-                  <Info className="h-3 w-3 mr-1 text-green-600" />
-                  <span>Seeking Information</span>
-                </>
+              {!person.fieldOffices?.[0] && person.classification === 'SEEKING_INFORMATION' && (
+                <span className="flex items-center"><Info className="h-3 w-3 mr-1 text-green-600"/> Seeking Information</span>
               )}
-              {person.classification === 'VICTIM_IDENTIFICATION' && (
-                <>
-                  <Search className="h-3 w-3 mr-1 text-blue-600" />
-                  <span>Victim Identification</span>
-                </>
+              {!person.fieldOffices?.[0] && person.classification === 'VICTIM_IDENTIFICATION' && (
+                <span className="flex items-center"><Search className="h-3 w-3 mr-1 text-blue-600"/> Victim Identification</span>
               )}
-               {person.classification !== 'WANTED_CRIMINAL' && person.source === 'fbi' && person.fieldOffices?.[0] && (
-                 <span className="flex items-center"><ShieldAlert className="h-3 w-3 mr-1 text-primary/70"/> {person.fieldOffices[0]}</span>
-               )}
+               {!person.fieldOffices?.[0] && person.classification === 'UNSPECIFIED' && (
+                <span className="flex items-center"><HelpCircle className="h-3 w-3 mr-1"/> General Alert</span>
+              )}
             </div>
           </CardContent>
         </Card>

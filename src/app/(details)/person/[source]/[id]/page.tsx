@@ -1,4 +1,5 @@
-import { getPersonDetails } from '@/lib/api';
+import { getFBIPersonDetails } from '@/lib/api'; // Updated import
+import type { WantedPerson } from '@/lib/types'; // Updated import
 import { PersonDetailsCard } from '@/components/PersonDetailsCard';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { UserX } from "lucide-react";
@@ -7,24 +8,26 @@ import { Button } from '@/components/ui/button';
 
 interface PersonDetailsPageProps {
   params: {
-    source: 'fbi' | 'interpol';
+    source: 'fbi'; // Source will always be 'fbi' now
     id: string;
   };
 }
 
 export async function generateMetadata({ params }: PersonDetailsPageProps) {
-  const person = await getPersonDetails(params.source, params.id);
+  const person = await getFBIPersonDetails(params.id); // Use FBI specific function
   if (!person) {
     return { title: 'Person Not Found | Global Watch' };
   }
   return {
     title: `${person.name || 'Wanted Person'} | Global Watch`,
-    description: `Details for ${person.name || 'wanted person'} from ${params.source.toUpperCase()}.`,
+    description: `Details for ${person.name || 'wanted person'} from the FBI.`,
   };
 }
 
 export default async function PersonDetailsPage({ params }: PersonDetailsPageProps) {
-  const person = await getPersonDetails(params.source, params.id);
+  // The 'source' parameter is still in the path but will always be 'fbi'.
+  // We can simplify by directly calling the FBI-specific function.
+  const person = await getFBIPersonDetails(params.id);
 
   if (!person) {
     return (
@@ -33,7 +36,7 @@ export default async function PersonDetailsPage({ params }: PersonDetailsPagePro
         <Alert variant="destructive" className="max-w-md">
           <AlertTitle className="font-headline text-2xl">Person Not Found</AlertTitle>
           <AlertDescription className="text-base">
-            The requested person (ID: {params.id} from {params.source.toUpperCase()}) could not be found.
+            The requested person (FBI ID: {params.id}) could not be found.
             They may have been captured, the information removed, or the ID may be incorrect.
           </AlertDescription>
         </Alert>

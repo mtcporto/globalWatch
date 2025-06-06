@@ -67,62 +67,6 @@ export interface FBIWantedResponse {
   items: FBIWantedItem[];
 }
 
-// Interpol API Types
-export interface InterpolLinks {
-  self?: { href: string };
-  images?: { href: string };
-  thumbnail?: { href: string };
-  notice?: { href: string }; 
-}
-
-export interface InterpolNotice {
-  forename?: string;
-  date_of_birth?: string;
-  entity_id: string; // e.g., "2023/12345"
-  nationalities?: string[] | null;
-  name?: string;
-  _links: InterpolLinks;
-  sex_id?: string; // M, F, U
-  country_of_birth_id?: string; // ISO country code
-  place_of_birth?: string;
-  height?: number; // meters
-  weight?: number; // kg
-  eyes_colors_id?: string[];
-  hairs_id?: string[];
-  distinguishing_marks?: string;
-  arrest_warrants?: { charge: string; issuing_country_id: string }[];
-  _embedded?: {
-    images?: InterpolImageDetail[]; 
-  };
-}
-
-export interface InterpolNoticesResponse {
-  total: number;
-  query: {
-    page: number;
-    resultPerPage: number;
-  };
-  _embedded: {
-    notices: InterpolNotice[];
-  };
-  _links: InterpolLinks;
-}
-
-export interface InterpolImageDetail {
-  _links: {
-    self: { href: string }; 
-  };
-  picture_id: string;
-}
-
-export interface InterpolImagesResponse {
-  _embedded: {
-    images: InterpolImageDetail[];
-  };
-  total: number;
-  _links: InterpolLinks; 
-}
-
 // Classification Enum
 export type PersonClassification =
   | 'WANTED_CRIMINAL'
@@ -131,13 +75,12 @@ export type PersonClassification =
   | 'SEEKING_INFORMATION'
   | 'UNSPECIFIED';
 
-// Combined Data Structure
-export interface CombinedWantedPerson {
-  id: string;
-  source: 'fbi' | 'interpol';
+// Simplified Data Structure for FBI Only
+export interface WantedPerson {
+  id: string; // Will be fbi-uid
+  rawId: string; // uid
+  source: 'fbi'; // Always 'fbi'
   name: string | null;
-  firstName?: string | null;
-  lastName?: string | null;
   images: string[];
   thumbnailUrl?: string;
   details?: string | null;
@@ -146,7 +89,7 @@ export interface CombinedWantedPerson {
   rewardText?: string | null;
   sex?: string | null;
   race?: string | null;
-  nationality?: string[] | null;
+  nationality?: string[] | null; // FBI nationality is a single string, normalized to array
   dateOfBirth?: string | null;
   age?: number | null;
   placeOfBirth?: string | null;
@@ -159,9 +102,8 @@ export interface CombinedWantedPerson {
   fieldOffices?: string[] | null;
   possibleCountries?: string[] | null;
   aliases?: string[] | null;
-  originalData: FBIWantedItem | InterpolNotice;
+  originalData: FBIWantedItem;
   detailsUrl: string;
-  rawId: string;
   classification: PersonClassification;
   caseTypeDescription?: string | null;
 }
