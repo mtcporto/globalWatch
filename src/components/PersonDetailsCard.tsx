@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { getPrimaryImageUrl } from '@/lib/api';
 import {
-  AlertTriangle, Award, Briefcase, CalendarDays, FileText, Globe, MapPin, User, Users, Fingerprint, Scale, Languages, UserMinus, Info, Search, ShieldQuestion, HelpCircle
+  AlertTriangle, Award, Briefcase, CalendarDays, FileText, Globe, MapPin, User, Users, Fingerprint, Scale, Languages, UserMinus, Info, Search, ShieldQuestion, HelpCircle, UserCheck, Baby, Laptop, UserRoundX, UserRoundSearch
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
@@ -90,13 +90,21 @@ export function PersonDetailsCard({ person }: { person: WantedPerson }) {
     const baseClasses = "mb-2 flex items-center gap-1 text-sm py-1 px-2";
     switch(person.classification) {
       case 'MISSING_PERSON':
-        return <Badge variant="secondary" className={`${baseClasses} bg-yellow-500 text-black`}><UserMinus className="mr-1 h-4 w-4"/>Missing Person</Badge>;
-      case 'VICTIM_IDENTIFICATION':
-        return <Badge variant="secondary" className={`${baseClasses} bg-blue-400 text-black`}><Search className="mr-1 h-4 w-4"/>Unidentified Person</Badge>;
+        return <Badge variant="secondary" className={`${baseClasses} bg-yellow-500 text-black`}><UserRoundX className="mr-1 h-4 w-4"/>Missing Person</Badge>;
+      case 'UNIDENTIFIED_PERSON':
+        return <Badge variant="secondary" className={`${baseClasses} bg-blue-400 text-black`}><UserRoundSearch className="mr-1 h-4 w-4"/>Unidentified Person</Badge>;
       case 'SEEKING_INFORMATION':
         return <Badge variant="secondary" className={`${baseClasses} bg-green-500 text-white`}><Info className="mr-1 h-4 w-4"/>Seeking Information</Badge>;
       case 'WANTED_CRIMINAL':
-        return <Badge variant='destructive' className={`${baseClasses}`}><ShieldQuestion className="mr-1 h-4 w-4"/> FBI ID: {person.rawId}</Badge>;
+         return <Badge variant='destructive' className={`${baseClasses}`}><ShieldQuestion className="mr-1 h-4 w-4"/> FBI Most Wanted</Badge>;
+      case 'CYBER_MOST_WANTED':
+        return <Badge variant='destructive' className={`${baseClasses} bg-purple-600 text-white`}><Laptop className="mr-1 h-4 w-4"/>Cyber Most Wanted</Badge>;
+      case 'CRIMES_AGAINST_CHILDREN':
+        return <Badge variant='destructive' className={`${baseClasses} bg-pink-600 text-white`}><Baby className="mr-1 h-4 w-4"/>Crimes Against Children</Badge>;
+      case 'CAPTURED':
+        return <Badge variant="default" className={`${baseClasses} bg-green-600 text-white`}><UserCheck className="mr-1 h-4 w-4"/>Captured / Resolved</Badge>;
+      case 'VICTIM_OF_CRIME':
+        return <Badge variant="secondary" className={`${baseClasses} bg-orange-500 text-white`}><AlertTriangle className="mr-1 h-4 w-4"/>Victim of Crime</Badge>;
       case 'UNSPECIFIED':
       default:
         return <Badge variant='default' className={`${baseClasses} bg-gray-500 text-white`}><HelpCircle className="mr-1 h-4 w-4"/> FBI Alert (ID: {person.rawId})</Badge>;
@@ -120,12 +128,13 @@ export function PersonDetailsCard({ person }: { person: WantedPerson }) {
           <div className="flex-1">
             {getClassificationBadge()}
             <CardTitle className="text-3xl font-headline mb-2">{person.name || 'N/A'}</CardTitle>
-            {(person.classification === 'WANTED_CRIMINAL' || person.classification === 'UNSPECIFIED') && person.aliases && person.aliases.length > 0 && (
+            {(person.classification === 'WANTED_CRIMINAL' || person.classification === 'CYBER_MOST_WANTED' || person.classification === 'CRIMES_AGAINST_CHILDREN' || person.classification === 'UNSPECIFIED') && person.aliases && person.aliases.length > 0 && (
                <CardDescription className="text-md text-accent mb-1">Aliases: {person.aliases.join(', ')}</CardDescription>
             )}
             <CardDescription className="text-lg text-muted-foreground">
               {person.caseTypeDescription || 'Details not specified.'}
             </CardDescription>
+             <div className="mt-2 text-xs text-muted-foreground">FBI UID: {person.rawId}</div>
           </div>
         </div>
       </CardHeader>
@@ -142,7 +151,7 @@ export function PersonDetailsCard({ person }: { person: WantedPerson }) {
               value={
                 Array.isArray(fbiData.age_range) 
                 ? fbiData.age_range.join(' - ') 
-                : String(fbiData.age_range) // Ensure it's a string if not an array
+                : String(fbiData.age_range) 
               } 
             />
           )}
@@ -166,9 +175,9 @@ export function PersonDetailsCard({ person }: { person: WantedPerson }) {
 
         <div className="md:col-span-2 space-y-2">
            <h3 className="text-xl font-semibold text-primary mb-3 font-headline">
-            {person.classification === 'WANTED_CRIMINAL' ? "Case Information" : "Case Details"}
+            {person.classification === 'WANTED_CRIMINAL' || person.classification === 'CYBER_MOST_WANTED' || person.classification === 'CRIMES_AGAINST_CHILDREN' ? "Case Information" : "Case Details"}
           </h3>
-          {(person.classification === 'WANTED_CRIMINAL' || person.classification === 'UNSPECIFIED') && person.charges && person.charges.length > 0 && (
+          {(person.classification === 'WANTED_CRIMINAL' || person.classification === 'CYBER_MOST_WANTED' || person.classification === 'CRIMES_AGAINST_CHILDREN' || person.classification === 'UNSPECIFIED') && person.charges && person.charges.length > 0 && (
              <DetailItem icon={Scale} label="Charges/Subjects" value={person.charges} isList />
           )}
           {fbiData?.caution && <DetailItem icon={AlertTriangle} label="Caution" value={fbiData.caution} />}
@@ -191,7 +200,7 @@ export function PersonDetailsCard({ person }: { person: WantedPerson }) {
           {fbiData?.possible_states && fbiData.possible_states.length > 0 && (
              <DetailItem icon={MapPin} label="Possible States (FBI)" value={fbiData.possible_states.join(', ')} />
           )}
-          {fbiData?.ncic && (person.classification === 'WANTED_CRIMINAL' || person.classification === 'UNSPECIFIED') && <DetailItem icon={Fingerprint} label="NCIC" value={fbiData.ncic} />}
+          {fbiData?.ncic && (person.classification === 'WANTED_CRIMINAL' || person.classification === 'CYBER_MOST_WANTED' || person.classification === 'CRIMES_AGAINST_CHILDREN' || person.classification === 'UNSPECIFIED') && <DetailItem icon={Fingerprint} label="NCIC" value={fbiData.ncic} />}
           <DetailItem icon={CalendarDays} label="Publication Date (FBI)" value={formattedPublicationDate || (fbiData?.publication ? fbiData.publication.split("T")[0] : null)} />
           <DetailItem icon={CalendarDays} label="Last Modified (FBI)" value={formattedModifiedDate || (fbiData?.modified ? fbiData.modified.split("T")[0] : null)} />
         </div>
