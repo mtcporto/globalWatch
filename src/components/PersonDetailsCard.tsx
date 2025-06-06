@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { getPrimaryImageUrl, SEX_MAP, HAIR_COLOR_MAP, EYE_COLOR_MAP, mapInterpolColorCodes } from '@/lib/api';
 import {
-  AlertTriangle, Award, Briefcase, CalendarDays, FileText, Globe, MapPin, User, Users, Fingerprint, Scale, Languages, UserMinus, Info, SearchHelp, ShieldQuestion
+  AlertTriangle, Award, Briefcase, CalendarDays, FileText, Globe, MapPin, User, Users, Fingerprint, Scale, Languages, UserMinus, Info, Search, ShieldQuestion
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
@@ -67,22 +67,26 @@ export function PersonDetailsCard({ person }: { person: CombinedWantedPerson }) 
   const primaryImage = getPrimaryImageUrl(person);
   const placeholderImage = `https://placehold.co/600x800.png?text=${encodeURIComponent(person.name || 'N/A')}`;
 
-  const [formattedPublicationDate, setFormattedPublicationDate] = useState<string | null>(null);
-  const [formattedModifiedDate, setFormattedModifiedDate] = useState<string | null>(null);
+  const [formattedPublicationDate, setFormattedPublicationDate] = useState<string | null>(
+    fbiData?.publication ? fbiData.publication.split("T")[0] : null
+  );
+  const [formattedModifiedDate, setFormattedModifiedDate] = useState<string | null>(
+    fbiData?.modified ? fbiData.modified.split("T")[0] : null
+  );
 
   useEffect(() => {
     if (fbiData?.publication) {
       try {
         setFormattedPublicationDate(new Date(fbiData.publication).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric'}));
       } catch (e) {
-        setFormattedPublicationDate(fbiData.publication.split("T")[0]);
+        // Fallback already set in useState
       }
     }
     if (fbiData?.modified) {
       try {
         setFormattedModifiedDate(new Date(fbiData.modified).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric'}));
       } catch (e) {
-        setFormattedModifiedDate(fbiData.modified.split("T")[0]);
+         // Fallback already set in useState
       }
     }
   }, [fbiData?.publication, fbiData?.modified]);
@@ -92,7 +96,7 @@ export function PersonDetailsCard({ person }: { person: CombinedWantedPerson }) 
       case 'MISSING_PERSON':
         return <Badge variant="secondary" className="mb-2 bg-yellow-500 text-black flex items-center gap-1 text-sm py-1 px-2"><UserMinus className="mr-1 h-4 w-4"/>Missing Person</Badge>;
       case 'VICTIM_IDENTIFICATION':
-        return <Badge variant="secondary" className="mb-2 bg-blue-400 text-black flex items-center gap-1 text-sm py-1 px-2"><SearchHelp className="mr-1 h-4 w-4"/>Unidentified Person</Badge>;
+        return <Badge variant="secondary" className="mb-2 bg-blue-400 text-black flex items-center gap-1 text-sm py-1 px-2"><Search className="mr-1 h-4 w-4"/>Unidentified Person</Badge>;
       case 'SEEKING_INFORMATION':
         return <Badge variant="secondary" className="mb-2 bg-green-500 text-white flex items-center gap-1 text-sm py-1 px-2"><Info className="mr-1 h-4 w-4"/>Seeking Information</Badge>;
       case 'WANTED_CRIMINAL':
@@ -114,6 +118,7 @@ export function PersonDetailsCard({ person }: { person: CombinedWantedPerson }) 
               layout="fill"
               objectFit="cover"
               data-ai-hint="person portrait"
+              unoptimized={person.source === 'interpol'}
               onError={(e) => { (e.target as HTMLImageElement).src = placeholderImage; }}
             />
           </div>
@@ -198,6 +203,7 @@ export function PersonDetailsCard({ person }: { person: CombinedWantedPerson }) 
                     layout="fill"
                     objectFit="cover"
                     data-ai-hint="person portrait"
+                    unoptimized={person.source === 'interpol'}
                     onError={(e) => { (e.target as HTMLImageElement).src = `https://placehold.co/300x300.png?text=Image+Error`; }}
                   />
                 </div>

@@ -6,7 +6,7 @@ import Image from 'next/image';
 import type { CombinedWantedPerson } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Globe, Building, UserMinus, Info, SearchHelp, ShieldAlert } from 'lucide-react';
+import { Globe, Building, UserMinus, Info, Search, ShieldAlert } from 'lucide-react';
 
 export function WantedCard({ person }: { person: CombinedWantedPerson }) {
   const placeholderImage = `https://placehold.co/300x400.png?text=${encodeURIComponent(person.name || 'N/A')}`;
@@ -23,7 +23,7 @@ export function WantedCard({ person }: { person: CombinedWantedPerson }) {
       case 'MISSING_PERSON':
         return <Badge variant="secondary" className="absolute top-2 right-2 bg-yellow-500 text-black flex items-center gap-1"><UserMinus className="h-3 w-3"/>Missing</Badge>;
       case 'VICTIM_IDENTIFICATION':
-        return <Badge variant="secondary" className="absolute top-2 right-2 bg-blue-400 text-black flex items-center gap-1"><SearchHelp className="h-3 w-3"/>Unidentified</Badge>;
+        return <Badge variant="secondary" className="absolute top-2 right-2 bg-blue-400 text-black flex items-center gap-1"><Search className="h-3 w-3"/>Unidentified</Badge>;
       case 'SEEKING_INFORMATION':
         return <Badge variant="secondary" className="absolute top-2 right-2 bg-green-500 text-white flex items-center gap-1"><Info className="h-3 w-3"/>Seeking Info</Badge>;
       case 'WANTED_CRIMINAL':
@@ -50,6 +50,7 @@ export function WantedCard({ person }: { person: CombinedWantedPerson }) {
                 objectFit="cover"
                 className="bg-muted"
                 data-ai-hint="person portrait"
+                unoptimized={person.source === 'interpol'}
                 onError={(e) => {
                   (e.target as HTMLImageElement).src = placeholderImage;
                 }}
@@ -93,7 +94,7 @@ export function WantedCard({ person }: { person: CombinedWantedPerson }) {
               )}
               {person.classification === 'VICTIM_IDENTIFICATION' && (
                 <>
-                  <SearchHelp className="h-3 w-3 mr-1 text-blue-600" />
+                  <Search className="h-3 w-3 mr-1 text-blue-600" />
                   <span>Victim Identification</span>
                 </>
               )}
