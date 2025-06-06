@@ -16,15 +16,23 @@ const INTERPOL_API_BASE_URL = 'https://ws-public.interpol.int/notices/v1';
 // Helper to safely fetch JSON
 async function fetchJson<T>(url: string, options?: RequestInit): Promise<T | null> {
   try {
+    const requestHeaders: HeadersInit = {
+      'Accept': 'application/json',
+      // Removed custom User-Agent and Accept-Language headers
+      // Let the fetch client (Node.js environment) use its defaults or send minimal headers
+    };
+
+    // Merge with any headers passed in options, giving precedence to options?.headers
+    const finalHeaders = {
+      ...requestHeaders,
+      ...options?.headers,
+    };
+
     const response = await fetch(url, {
       ...options,
-      headers: {
-        'Accept': 'application/json',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/97.0.4692.99 Safari/537.36',
-        'Accept-Language': 'en-US,en;q=0.9', // Added Accept-Language header
-        ...options?.headers,
-      },
+      headers: finalHeaders,
     });
+
     if (!response.ok) {
       console.error(`API error for ${url}: ${response.status} ${response.statusText}`);
       const errorBody = await response.text();
@@ -51,10 +59,7 @@ export async function fetchFBIWantedList(page: number = 1, pageSize: number = 20
 }
 
 export async function fetchFBIDetail(uid: string): Promise<FBIWantedItem | null> {
-  // Fetching a large list to find one item can be inefficient.
-  // If the API supports direct fetching by UID, that would be better.
-  // For now, this attempts to find it in a broader list.
-  const list = await fetchFBIWantedList(1, 500); // Consider implications of fetching 500 items
+  const list = await fetchFBIWantedList(1, 500);
   return list.find(item => item.uid === uid) || null;
 }
 
@@ -87,30 +92,24 @@ export async function fetchInterpolNoticeImages(noticeId: string): Promise<Inter
 // Data Normalization
 function normalizeFBIItem(item: FBIWantedItem): CombinedWantedPerson {
   const fbiImageObjects = item.images || [];
-  
-  const primaryDisplayImage = fbiImageObjects.find(img => img.large)?.large || 
-                              fbiImageObjects.find(img => img.original)?.original ||
-                              // fbiImageObjects[0]?.thumb || // Avoid using thumb if possible
-                             `https://placehold.co/300x400.png?text=No+Image`;
 
-  const allAvailableImages = fbiImageObjects
-    .map(img => img.original || img.large || img.thumb) // Prioritize original, then large, then thumb
-    .filter(Boolean) as string[];
+  const prioritizedImages = [
+    ...fbiImageObjects.map(img => img.original),
+    ...fbiImageObjects.map(img => img.large),
+    ...fbiImageObjects.map(img => img.thumb)
+  ].filter(Boolean) as string[];
+
+  const uniqueImages = Array.from(new Set(prioritizedImages));
   
-  const imageSet = new Set(allAvailableImages);
-  if (primaryDisplayImage && !primaryDisplayImage.includes('placehold.co') && !imageSet.has(primaryDisplayImage)) {
-    // This case might not be strictly necessary if allAvailableImages already includes the best options
-    // allAvailableImages.unshift(primaryDisplayImage); // Re-evaluate if needed
-  }
+  const primaryDisplayImage = uniqueImages.length > 0 ? uniqueImages[0] : `https://placehold.co/300x400.png?text=No+Image`;
 
 
   let heightStr = null;
-  if (item.height_max && item.height_min && item.height_min === item.height_max) { // only if max and min are same
+  if (item.height_max && item.height_min && item.height_min === item.height_max) {
     const feet = Math.floor(item.height_max / 12);
     const inches = item.height_max % 12;
     heightStr = `${feet}'${inches}" (${(item.height_max * 0.0254).toFixed(2)}m)`;
   } else if (item.height_max) {
-     // If only max is available or min/max differ, could show range or just max in meters
      heightStr = `${(item.height_max * 0.0254).toFixed(2)}m (max)`;
   }
 
@@ -124,11 +123,11 @@ function normalizeFBIItem(item: FBIWantedItem): CombinedWantedPerson {
   const subjectsLower = item.subjects?.map(s => s.toLowerCase()) || [];
   const titleLower = item.title?.toLowerCase() || "";
 
-  if (posterClass === 'missing' || subjectsLower.includes('kidnappings and missing persons') || subjectsLower.includes('missing person') || titleLower.includes('missing')) {
+  if (posterClass === 'missing' || personClass === 'missing person' || subjectsLower.includes('kidnappings and missing persons') || subjectsLower.includes('missing person') || titleLower.includes('missing')) {
     classification = 'MISSING_PERSON';
     caseTypeDesc = item.description || `Missing since ${item.publication?.split('T')[0] || 'unknown date'}`;
     actualCharges = null;
-  } else if (posterClass === 'information' || subjectsLower.includes('seeking information') || titleLower.includes('seeking information')) {
+  } else if (posterClass === 'information' || personClass === 'seeking information' || subjectsLower.includes('seeking information') || titleLower.includes('seeking information')) {
     classification = 'SEEKING_INFORMATION';
     caseTypeDesc = item.title || "Seeking Information";
     actualCharges = null;
@@ -147,15 +146,15 @@ function normalizeFBIItem(item: FBIWantedItem): CombinedWantedPerson {
         actualCharges = null;
      }
   }
-
-  const bestThumbnail = allAvailableImages.length > 0 ? allAvailableImages[0] : primaryDisplayImage;
+  
+  const bestThumbnail = uniqueImages.length > 0 ? uniqueImages[0] : primaryDisplayImage;
 
   return {
     id: `fbi-${item.uid}`,
     rawId: item.uid,
     source: 'fbi',
     name: item.title,
-    images: allAvailableImages.length > 0 ? allAvailableImages : [primaryDisplayImage],
+    images: uniqueImages.length > 0 ? uniqueImages : [primaryDisplayImage],
     thumbnailUrl: bestThumbnail, 
     details: item.details || item.caution, 
     remarks: item.remarks,
@@ -164,7 +163,6 @@ function normalizeFBIItem(item: FBIWantedItem): CombinedWantedPerson {
     sex: item.sex,
     race: item.race,
     nationality: item.nationality ? [item.nationality] : null,
-    // Use dates_of_publication for actual birth date if available, otherwise it might be a general publication date
     dateOfBirth: item.dates_of_birth_used?.[0] || null, 
     age: item.age_range ? undefined : (item.age_max || item.age_min || undefined), 
     age_range: item.age_range,
@@ -194,30 +192,29 @@ function normalizeInterpolItem(item: InterpolNotice, detailedImagesFromApi?: Int
   let primaryImageForDisplay: string | undefined;
   let allImagesForGallery: string[] = [];
 
-  // If detailedImagesFromApi are provided (from the /images endpoint for the detail page)
   if (detailedImagesFromApi && detailedImagesFromApi.length > 0) {
     allImagesForGallery = detailedImagesFromApi
-      .map(img => img._links?.self?.href) // Use the self href from the detailed images
+      .map(img => img._links?.self?.href)
       .filter(Boolean) as string[];
-    primaryImageForDisplay = allImagesForGallery[0]; // Prioritize the first image from this detailed list
+    primaryImageForDisplay = allImagesForGallery[0];
   }
   
-  // Fallback to the thumbnail from the main notice list if no detailed images were fetched or found
   if (!primaryImageForDisplay) {
     primaryImageForDisplay = item._links?.thumbnail?.href;
   }
 
-  // If still no image, use placeholder
-  if (!primaryImageForDisplay || !primaryImageForDisplay.startsWith('https://')) {
-    primaryImageForDisplay = `https://placehold.co/300x400.png?text=No+Image`;
+  if (!primaryImageForDisplay || !primaryImageForDisplay.startsWith('https://ws-public.interpol.int/notices/v1/red/')) {
+     // If thumbnail is not a direct image link (e.g., it's an HTML page or missing), use placeholder
+     // Or if it points to an images endpoint but not a specific image.
+     // This also handles cases where the primaryImageForDisplay might be an empty string or invalid.
+     primaryImageForDisplay = `https://placehold.co/300x400.png?text=${encodeURIComponent(fullName || 'No Image')}`;
   }
   
-  // Ensure allImagesForGallery has at least the primary image if it's valid
-  if (allImagesForGallery.length === 0 && primaryImageForDisplay && primaryImageForDisplay.startsWith('https://')) {
+  if (allImagesForGallery.length === 0 && primaryImageForDisplay && !primaryImageForDisplay.includes('placehold.co')) {
     allImagesForGallery.push(primaryImageForDisplay);
   }
   if (allImagesForGallery.length === 0) { 
-    allImagesForGallery.push(`https://placehold.co/300x400.png?text=No+Image`);
+    allImagesForGallery.push(`https://placehold.co/300x400.png?text=${encodeURIComponent(fullName || 'No Image')}`);
   }
   
   let sex = null;
@@ -239,11 +236,11 @@ function normalizeInterpolItem(item: InterpolNotice, detailedImagesFromApi?: Int
     firstName: item.forename,
     lastName: item.name,
     images: allImagesForGallery,
-    thumbnailUrl: primaryImageForDisplay, // This will be the list thumbnail or the first detailed image
+    thumbnailUrl: primaryImageForDisplay,
     details: item.arrest_warrants?.map(aw => `${aw.charge} (Issuing Country: ${aw.issuing_country_id || 'N/A'})`).join('; ') || undefined,
     sex: sex,
     nationality: item.nationalities,
-    dateOfBirth: item.date_of_birth?.replace(/\//g, '-'), // Ensure consistent date format
+    dateOfBirth: item.date_of_birth?.replace(/\//g, '-'),
     placeOfBirth: item.place_of_birth || item.country_of_birth_id,
     height: heightStr,
     weight: weightStr,
@@ -253,7 +250,7 @@ function normalizeInterpolItem(item: InterpolNotice, detailedImagesFromApi?: Int
     charges: charges,
     originalData: item,
     detailsUrl: `/person/interpol/${item.entity_id.replace('/', '-')}`,
-    classification: 'WANTED_CRIMINAL', // Interpol Red Notices are generally for wanted individuals
+    classification: 'WANTED_CRIMINAL',
     caseTypeDescription: charges?.join(' / ') || 'Wanted by Interpol',
   };
 }
@@ -271,7 +268,7 @@ export async function getCombinedWantedList(page: number = 1, pageSize: number =
 
   if (fbiItems) {
     fbiItems.forEach(item => {
-      if (item && item.uid) { // Basic validation
+      if (item && item.uid) {
          combinedList.push(normalizeFBIItem(item));
       }
     });
@@ -279,24 +276,20 @@ export async function getCombinedWantedList(page: number = 1, pageSize: number =
 
   if (interpolItems) {
     for (const item of interpolItems) {
-      if (item && item.entity_id) { // Basic validation
-        // For the list view, we don't fetch detailed images yet to save API calls
+      if (item && item.entity_id) {
         combinedList.push(normalizeInterpolItem(item)); 
       }
     }
   }
   
-  // Simple sort by source for consistent ordering, can be made more sophisticated
   return combinedList.sort((a, b) => {
     const dateA = (a.originalData as FBIWantedItem).publication ? new Date((a.originalData as FBIWantedItem).publication).getTime() : 0;
     const dateB = (b.originalData as FBIWantedItem).publication ? new Date((b.originalData as FBIWantedItem).publication).getTime() : 0;
     
-    // Prioritize items with publication dates, newest first
     if (dateA && dateB) return dateB - dateA; 
-    if (dateA) return -1; // a has date, b doesn't, so a comes first
-    if (dateB) return 1;  // b has date, a doesn't, so b comes first
+    if (dateA) return -1;
+    if (dateB) return 1;
     
-    // Fallback sort by name if no dates or dates are equal
     return (a.name || "").localeCompare(b.name || "");
   });
 }
@@ -321,7 +314,6 @@ export function getPrimaryImageUrl(person: CombinedWantedPerson): string {
   if (person.images && person.images.length > 0 && person.images[0] && !person.images[0].includes('placehold.co')) {
     return person.images[0];
   }
-  // This fallback for thumbnail might be redundant if images[0] is already the best one.
   if (person.thumbnailUrl && !person.thumbnailUrl.includes('placehold.co') && !person.thumbnailUrl.includes('No+Image')) {
     return person.thumbnailUrl;
   }
