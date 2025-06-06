@@ -12,7 +12,7 @@ export const revalidate = 60 * 60 * 24 * 7; // Revalidate data every 7 days
 const classificationTitles: Record<PersonClassification, string> = {
   WANTED_CRIMINAL: "Most Wanted",
   MISSING_PERSON: "Missing Persons",
-  VICTIM_IDENTIFICATION: "Unidentified",
+  VICTIM_IDENTIFICATION: "Unidentified / Victims",
   SEEKING_INFORMATION: "Seeking Info",
   UNSPECIFIED: "Other Cases"
 };
@@ -20,7 +20,7 @@ const classificationTitles: Record<PersonClassification, string> = {
 const classificationIcons: Record<PersonClassification, React.ElementType> = {
   WANTED_CRIMINAL: ShieldQuestion,
   MISSING_PERSON: UserX,
-  VICTIM_IDENTIFICATION: Search,
+  VICTIM_IDENTIFICATION: Search, // Could also be UserX or a specific victim icon
   SEEKING_INFORMATION: Info,
   UNSPECIFIED: HelpCircle
 };
@@ -77,17 +77,6 @@ export default async function HomePage() {
         <p className="text-lg text-muted-foreground mt-2">FBI Wanted List & Public Information</p>
       </div>
       
-      <Alert variant="default" className="border-primary/30 bg-primary/5">
-        <ShieldQuestion className="h-5 w-5 text-primary mt-1" />
-        <AlertTitle className="text-primary font-semibold">Information Source & Purpose</AlertTitle>
-        <AlertDescription className="text-foreground/80">
-          This platform compiles publicly available information from the FBI.
-          It includes data on wanted individuals, missing persons, unidentified victims, and cases where public information is sought. 
-          For official inquiries or to report information, please refer directly to the FBI website. 
-          This site is for informational awareness only.
-        </AlertDescription>
-      </Alert>
-
       <section className="space-y-6">
         <h2 className="text-2xl font-bold font-headline text-primary text-center">Current Overview (Full Dataset)</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -139,6 +128,17 @@ export default async function HomePage() {
           })}
         </Tabs>
       )}
+
+      <Alert variant="default" className="border-primary/30 bg-primary/5 mt-12">
+        <ShieldQuestion className="h-5 w-5 text-primary mt-1" />
+        <AlertTitle className="text-primary font-semibold">Information Source & Purpose</AlertTitle>
+        <AlertDescription className="text-foreground/80">
+          This platform compiles publicly available information from the FBI.
+          It includes data on wanted individuals, missing persons, unidentified victims, and cases where public information is sought. 
+          For official inquiries or to report information, please refer directly to the FBI website. 
+          This site is for informational awareness only.
+        </AlertDescription>
+      </Alert>
     </div>
   );
 }
