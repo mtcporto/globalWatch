@@ -1,3 +1,4 @@
+
 // FBI API Types
 export interface FBIImage {
   original: string;
@@ -32,10 +33,11 @@ export interface FBIWantedItem {
   field_offices: string[] | null;
   locations: string[] | null;
   person_classification: string; // e.g. "Main", "Victim"
+  poster_classification?: string; // Added as optional, e.g. "default", "missing", "information"
   ncic: string | null;
   age_min: number | null;
   age_max: number | null;
-  age_range: string | null; // Not in example but might exist
+  age_range: string[] | null; // Changed to string array based on observed data.
   weight: string | null;
   height_min: number | null; // inches
   height_max: number | null; // inches
@@ -70,6 +72,7 @@ export interface InterpolLinks {
   self?: { href: string };
   images?: { href: string };
   thumbnail?: { href: string };
+  picture?: { href: string }; // For detailed images
 }
 
 export interface InterpolNotice {
@@ -108,8 +111,8 @@ export interface InterpolNoticesResponse {
 
 export interface InterpolImageDetail {
   _links: {
-    self: { href: string };
-    picture: { href: string }; // This seems to be the actual image URL
+    self?: { href: string }; // Made optional
+    picture: { href: string };
   };
   _embedded?: any;
   picture_id: string; // numeric string
@@ -122,35 +125,45 @@ export interface InterpolImagesResponse {
   total: number;
 }
 
+// Classification Enum
+export type PersonClassification =
+  | 'WANTED_CRIMINAL'
+  | 'MISSING_PERSON'
+  | 'VICTIM_IDENTIFICATION'
+  | 'SEEKING_INFORMATION'
+  | 'UNSPECIFIED';
+
 // Combined Data Structure
 export interface CombinedWantedPerson {
-  id: string; // unique ID, e.g., "fbi-UID" or "interpol-ENTITY_ID"
+  id: string;
   source: 'fbi' | 'interpol';
   name: string | null;
   firstName?: string | null;
   lastName?: string | null;
-  images: string[]; // URLs of full-size images
+  images: string[];
   thumbnailUrl?: string;
-  details?: string | null; // FBI: details, Interpol: constructed from arrest_warrants
-  remarks?: string | null; // FBI specific
-  warningMessage?: string | null; // FBI specific, Interpol: maybe from UN notices if applicable
-  rewardText?: string | null; // FBI specific
+  details?: string | null;
+  remarks?: string | null;
+  warningMessage?: string | null;
+  rewardText?: string | null;
   sex?: string | null;
-  race?: string | null; // FBI specific
+  race?: string | null;
   nationality?: string[] | null;
   dateOfBirth?: string | null;
-  age?: number | null; // Calculated or from API
+  age?: number | null;
   placeOfBirth?: string | null;
-  height?: string | null; // e.g., "1.75m" or "5'9\""
-  weight?: string | null; // e.g., "70kg" or "154lbs"
+  height?: string | null;
+  weight?: string | null;
   eyeColor?: string | null;
   hairColor?: string | null;
-  distinguishingMarks?: string | null; // Scars, marks, etc.
-  charges?: string[] | null; // FBI: subjects, Interpol: arrest_warrants.charge
-  fieldOffices?: string[] | null; // FBI specific
-  possibleCountries?: string[] | null; // FBI specific
-  aliases?: string[] | null; // FBI specific
+  distinguishingMarks?: string | null;
+  charges?: string[] | null;
+  fieldOffices?: string[] | null;
+  possibleCountries?: string[] | null;
+  aliases?: string[] | null;
   originalData: FBIWantedItem | InterpolNotice;
-  detailsUrl: string; // Path to the detail page, e.g. /person/fbi/some-uid
-  rawId: string; // Original ID from the source API (FBI uid or Interpol entity_id without modification)
+  detailsUrl: string;
+  rawId: string;
+  classification: PersonClassification;
+  caseTypeDescription?: string | null;
 }
