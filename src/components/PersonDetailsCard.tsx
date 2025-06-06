@@ -9,6 +9,7 @@ import { getPrimaryImageUrl, SEX_MAP, HAIR_COLOR_MAP, EYE_COLOR_MAP, mapInterpol
 import {
   AlertTriangle, Award, Briefcase, CalendarDays, FileText, Globe, MapPin, User, Users, Fingerprint, Scale, Languages
 } from 'lucide-react';
+import { useState, useEffect } from 'react';
 
 interface DetailItemProps {
   icon: React.ElementType;
@@ -39,7 +40,6 @@ function DetailItem({ icon: Icon, label, value, isList = false }: DetailItemProp
     displayValue = value;
   }
   
-  // Special handling for HTML content from FBI details/remarks
   if (label === "Details" || label === "Remarks" || label === "Caution") {
      if (typeof displayValue === 'string' && (displayValue.includes('<p>') || displayValue.includes('<li>'))) {
         return (
@@ -53,7 +53,6 @@ function DetailItem({ icon: Icon, label, value, isList = false }: DetailItemProp
         );
      }
   }
-
 
   return (
     <div className="flex items-start gap-3 py-2 border-b border-dashed">
@@ -76,6 +75,23 @@ export function PersonDetailsCard({ person }: { person: CombinedWantedPerson }) 
 
   const primaryImage = getPrimaryImageUrl(person);
   const placeholderImage = `https://placehold.co/600x800.png?text=${encodeURIComponent(person.name || 'N/A')}`;
+
+  const [formattedPublicationDate, setFormattedPublicationDate] = useState<string | null>(
+    fbiData?.publication ? fbiData.publication.split('T')[0] : null
+  );
+  const [formattedModifiedDate, setFormattedModifiedDate] = useState<string | null>(
+    fbiData?.modified ? fbiData.modified.split('T')[0] : null
+  );
+
+  useEffect(() => {
+    if (fbiData?.publication) {
+      setFormattedPublicationDate(new Date(fbiData.publication).toLocaleDateString());
+    }
+    if (fbiData?.modified) {
+      setFormattedModifiedDate(new Date(fbiData.modified).toLocaleDateString());
+    }
+  }, [fbiData?.publication, fbiData?.modified]);
+
 
   return (
     <Card className="overflow-hidden shadow-xl">
@@ -150,8 +166,8 @@ export function PersonDetailsCard({ person }: { person: CombinedWantedPerson }) 
              <DetailItem icon={MapPin} label="Possible States (FBI)" value={fbiData.possible_states.join(', ')} />
           )}
           {fbiData?.ncic && <DetailItem icon={Fingerprint} label="NCIC" value={fbiData.ncic} />}
-          {fbiData?.publication && <DetailItem icon={CalendarDays} label="Publication Date (FBI)" value={new Date(fbiData.publication).toLocaleDateString()} />}
-          {fbiData?.modified && <DetailItem icon={CalendarDays} label="Last Modified (FBI)" value={new Date(fbiData.modified).toLocaleDateString()} />}
+          {fbiData?.publication && <DetailItem icon={CalendarDays} label="Publication Date (FBI)" value={formattedPublicationDate} />}
+          {fbiData?.modified && <DetailItem icon={CalendarDays} label="Last Modified (FBI)" value={formattedModifiedDate} />}
         </div>
         
         {person.images && person.images.length > 1 && (
