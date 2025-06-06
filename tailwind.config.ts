@@ -93,7 +93,34 @@ export default {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
       },
+      typography: ({ theme }: { theme: any }) => ({ // Added for prose styling
+        DEFAULT: {
+          css: {
+            color: theme('colors.foreground'),
+            a: {
+              color: theme('colors.primary.DEFAULT'),
+              '&:hover': {
+                color: theme('colors.primary.DEFAULT / 0.9'),
+              },
+            },
+            // Add more prose styles as needed
+            p: {
+              marginTop: theme('spacing.2'),
+              marginBottom: theme('spacing.2'),
+            },
+            ul: {
+                marginTop: theme('spacing.2'),
+                marginBottom: theme('spacing.2'),
+                paddingLeft: theme('spacing.5'),
+            },
+            li: {
+                marginTop: theme('spacing.1'),
+                marginBottom: theme('spacing.1'),
+            }
+          },
+        },
+      }),
     },
   },
-  plugins: [require('tailwindcss-animate')],
+  plugins: [require('tailwindcss-animate'), require('@tailwindcss/typography')], // Added @tailwindcss/typography
 } satisfies Config;
