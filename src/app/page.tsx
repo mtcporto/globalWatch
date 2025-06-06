@@ -1,13 +1,13 @@
 
 import { getFBIWantedListData } from '@/lib/api';
 import type { WantedPerson, PersonClassification } from '@/lib/types';
-import { WantedCard } from '@/components/WantedCard';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Search, ShieldQuestion, UserX, Info, HelpCircle, Users, Activity } from "lucide-react";
+import { PaginatedCategoryContent } from '@/components/PaginatedCategoryContent';
 
-export const revalidate = 3600; // Revalidate data every hour
+export const revalidate = 60 * 60 * 24 * 7; // Revalidate data every 7 days
 
 const classificationTitles: Record<PersonClassification, string> = {
   WANTED_CRIMINAL: "Most Wanted",
@@ -58,7 +58,7 @@ export default async function HomePage() {
   });
 
   const stats = [
-    { title: "Total Alerts Fetched", value: allFBIPersons.length, icon: Activity, colorClass: "text-primary" },
+    { title: "Total Alerts Fetched (Sample)", value: allFBIPersons.length, icon: Activity, colorClass: "text-primary" },
     { title: classificationTitles.WANTED_CRIMINAL, value: groupedPersons.WANTED_CRIMINAL?.length || 0, icon: classificationIcons.WANTED_CRIMINAL, colorClass: "text-destructive" },
     { title: classificationTitles.MISSING_PERSON, value: groupedPersons.MISSING_PERSON?.length || 0, icon: classificationIcons.MISSING_PERSON, colorClass: "text-yellow-600" },
     { title: classificationTitles.VICTIM_IDENTIFICATION, value: groupedPersons.VICTIM_IDENTIFICATION?.length || 0, icon: classificationIcons.VICTIM_IDENTIFICATION, colorClass: "text-blue-600" },
@@ -99,7 +99,7 @@ export default async function HomePage() {
               </CardHeader>
               <CardContent>
                 <div className="text-4xl font-bold text-primary">{stat.value.toLocaleString()}</div>
-                {stat.title === "Total Alerts Fetched" && <p className="text-xs text-muted-foreground">Note: API provides data in pages. Full count may be higher.</p>}
+                {stat.title === "Total Alerts Fetched (Sample)" && <p className="text-xs text-muted-foreground">Based on the first 200 records from API. Full count may be higher.</p>}
               </CardContent>
             </Card>
           ))}
@@ -128,18 +128,10 @@ export default async function HomePage() {
 
           {activeClassifications.map(classification => {
             const personsInClassification = groupedPersons[classification];
-            // This check is technically redundant due to activeClassifications filter, but good for safety
             if (personsInClassification && personsInClassification.length > 0) { 
               return (
                 <TabsContent key={classification} value={classification} className="mt-0 pt-6 border-t">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-                    {personsInClassification.map((person) => (
-                      person && person.id ? <WantedCard key={person.id} person={person} /> : null
-                    ))}
-                  </div>
-                  {personsInClassification.length === 0 && (
-                     <p className="text-center text-muted-foreground py-8">No individuals found in this category from the current data set.</p>
-                  )}
+                  <PaginatedCategoryContent items={personsInClassification} />
                 </TabsContent>
               );
             }
