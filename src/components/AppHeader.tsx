@@ -1,7 +1,7 @@
 "use client";
 
 import Link from 'next/link';
-import { ShieldAlert } from 'lucide-react'; // Or another suitable icon
+import { ShieldAlert } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -15,11 +15,14 @@ export function AppHeader() {
   ];
 
   return (
-    <header className="bg-primary text-primary-foreground shadow-md">
-      <div className="container mx-auto px-4 py-3 flex items-center justify-between">
+    <header className="sticky top-0 z-40 border-b border-primary-foreground/10 bg-primary/95 text-primary-foreground shadow-md backdrop-blur">
+      <div className="container mx-auto flex items-center justify-between px-4 py-3">
         <Link href="/" className="flex items-center gap-2">
           <ShieldAlert className="h-8 w-8 text-accent" />
-          <h1 className="text-xl font-bold font-headline">Global Watch</h1>
+          <div>
+            <h1 className="font-headline text-xl font-bold leading-none">Global Watch</h1>
+            <p className="mt-1 hidden text-[10px] uppercase tracking-[0.18em] text-primary-foreground/60 sm:block">Public records, made clear</p>
+          </div>
         </Link>
         <nav className="flex items-center gap-2">
           {navItems.map((item) => (

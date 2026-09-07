@@ -5,8 +5,12 @@ import type {
   WantedPerson,
   PersonClassification,
 } from './types';
+import { getCachedRecord, getCachedRecords, saveRecords } from './db';
+import { getEuMostWantedData, getMjspCapturaData } from './sources';
+import type { WantedSource } from './types';
 
 const FBI_API_BASE_URL = 'https://api.fbi.gov/wanted/v1/list';
+const FBI_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 
 // Helper function to introduce a delay
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -144,7 +148,7 @@ function normalizeFBIItem(item: FBIWantedItem): WantedPerson {
         }
 
         // 4. Refine based on keywords in subjects (if not specifically set by poster/person class)
-        if (classification === 'WANTED_CRIMINAL' || classification === 'UNSPECIFIED' || classification === 'VICTIM_OF_CRIME') { // also check if VICTIM_OF_CRIME needs to be MISSING etc.
+        if (classification === 'WANTED_CRIMINAL' || classification === 'VICTIM_OF_CRIME') { // also check if VICTIM_OF_CRIME needs to be MISSING etc.
             if (subjectsLower.some(s => s.includes('vicap missing persons') || s.includes('kidnappings and missing persons') || s.includes('missing person'))) {
                 classification = 'MISSING_PERSON';
             } else if (subjectsLower.some(s => s.includes('seeking information'))) {
@@ -161,7 +165,7 @@ function normalizeFBIItem(item: FBIWantedItem): WantedPerson {
         }
 
         // 5. Refine based on keywords in title (if not specifically set)
-        if (classification === 'WANTED_CRIMINAL' || classification === 'UNSPECIFIED' || classification === 'VICTIM_OF_CRIME') {
+        if (classification === 'WANTED_CRIMINAL' || classification === 'VICTIM_OF_CRIME') {
             if (titleLower.includes('missing person') || (titleLower.includes('missing') && !titleLower.includes("information for missing"))) {
                 classification = 'MISSING_PERSON';
             } else if (titleLower.includes('seeking information') || titleLower.includes('information sought')) {
@@ -335,6 +339,7 @@ function normalizeFBIItem(item: FBIWantedItem): WantedPerson {
     aliases: item.aliases,
     originalData: item, 
     detailsUrl: `/person/fbi/${item.uid}`,
+    sourceUrl: item.url,
     classification: classification,
     caseTypeDescription: caseTypeDesc,
     status: item.status,
@@ -343,6 +348,17 @@ function normalizeFBIItem(item: FBIWantedItem): WantedPerson {
 
 // Fetches all FBI Wanted Persons by paginating through the API.
 export async function getAllFBIWantedData(itemsPerPage: number = 50): Promise<WantedPerson[]> {
+  const cachedRecords = await getCachedRecords<WantedPerson>('fbi');
+  const newestCachedRecord = cachedRecords.reduce(
+    (latest, record) => Math.max(latest, record.updatedAt),
+    0,
+  );
+
+  if (cachedRecords.length > 0 && Date.now() - newestCachedRecord < FBI_CACHE_TTL_MS) {
+    console.log(`[getAllFBIWantedData] Serving ${cachedRecords.length} records from Turso cache.`);
+    return cachedRecords.map(record => record.payload);
+  }
+
   console.log('[getAllFBIWantedData] Starting full data fetch from FBI API...');
   let allNormalizedPersons: WantedPerson[] = [];
   let currentPage = 1;
@@ -403,6 +419,8 @@ export async function getAllFBIWantedData(itemsPerPage: number = 50): Promise<Wa
     console.warn(`[getAllFBIWantedData] Deduplicated ${successfullyFetchedItems - uniquePersons.length} items. Final count: ${uniquePersons.length}`);
   }
   console.log(`[getAllFBIWantedData] Finished fetching. Total unique persons: ${uniquePersons.length} after ${currentPage -1} API calls to FBI.`);
+
+  await saveRecords('fbi', uniquePersons);
   
   return uniquePersons;
 }
@@ -411,6 +429,11 @@ export async function getAllFBIWantedData(itemsPerPage: number = 50): Promise<Wa
 // Get details for a single FBI Wanted Person
 export async function getFBIPersonDetails(id: string): Promise<WantedPerson | null> {
   console.log(`[getFBIPersonDetails] Attempting to fetch details for FBI ID: ${id}`);
+
+  const cachedRecord = await getCachedRecord<WantedPerson>('fbi', id);
+  if (cachedRecord) {
+    console.log(`[getFBIPersonDetails] Found ${id} in Turso cache.`);
+  }
 
   // 1. Attempt direct fetch by UID
   const directUrl = `https://api.fbi.gov/wanted/v1/object/${id}`;
@@ -433,6 +456,10 @@ export async function getFBIPersonDetails(id: string): Promise<WantedPerson | nu
     console.error(`[getFBIPersonDetails] Error during direct fetch for ID ${id}:`, error);
   }
 
+  if (cachedRecord) {
+    return cachedRecord.payload;
+  }
+
   // 2. Fallback: If direct fetch fails or returns no valid item, search in the full list.
   console.warn(`[getFBIPersonDetails] Direct fetch failed or yielded no result for ID ${id}. Falling back to searching in full list.`);
   try {
@@ -450,6 +477,21 @@ export async function getFBIPersonDetails(id: string): Promise<WantedPerson | nu
 
   console.warn(`[getFBIPersonDetails] Person with FBI ID ${id} not found via direct fetch or in the full list.`);
   return null; 
+}
+
+export async function getAllGlobalWantedData(): Promise<WantedPerson[]> {
+  const [fbi, euMostWanted, mjspCaptura] = await Promise.all([
+    getAllFBIWantedData(),
+    getEuMostWantedData(),
+    getMjspCapturaData(),
+  ]);
+  return [...fbi, ...euMostWanted, ...mjspCaptura];
+}
+
+export async function getPersonDetails(source: WantedSource, id: string): Promise<WantedPerson | null> {
+  if (source === 'fbi') return getFBIPersonDetails(id);
+  const { getPersonFromSource } = await import('./sources');
+  return getPersonFromSource(source, id);
 }
 
 

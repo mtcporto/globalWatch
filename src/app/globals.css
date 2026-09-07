@@ -3,7 +3,8 @@
 @tailwind utilities;
 
 body {
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-body), sans-serif;
+  background-image: linear-gradient(180deg, hsl(var(--background)) 0%, hsl(210 25% 91% / 0.6) 100%);
 }
 
 @layer base {
@@ -33,6 +34,8 @@ body {
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
     --radius: 0.5rem;
+    --font-body: 'DM Sans';
+    --font-display: 'Space Grotesk';
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;
     --sidebar-primary: 240 5.9% 10%;
@@ -84,5 +87,37 @@ body {
   }
   body {
     @apply bg-background text-foreground;
+  }
+
+  .font-headline {
+    font-family: var(--font-display), sans-serif;
+  }
+}
+
+@layer components {
+  .hero-panel {
+    background: linear-gradient(120deg, hsl(211 44% 19%) 0%, hsl(208 38% 27%) 58%, hsl(198 48% 31%) 100%);
+  }
+
+  .hero-grid {
+    background-image: linear-gradient(hsl(0 0% 100% / 0.12) 1px, transparent 1px), linear-gradient(90deg, hsl(0 0% 100% / 0.12) 1px, transparent 1px);
+    background-size: 32px 32px;
+    mask-image: linear-gradient(90deg, black, transparent 80%);
+  }
+
+  .metric-card {
+    @apply flex min-h-32 flex-col justify-between rounded-2xl border border-border/70 bg-card p-5 shadow-sm transition-transform duration-200 hover:-translate-y-1 hover:shadow-md;
+  }
+
+  .metric-value {
+    @apply mt-3 font-headline text-3xl font-bold tracking-tight text-foreground;
+  }
+
+  .metric-label {
+    @apply text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground;
+  }
+
+  .eyebrow {
+    @apply mb-2 text-xs font-bold uppercase tracking-[0.18em] text-accent;
   }
 }

@@ -1,6 +1,6 @@
 
-import { getFBIPersonDetails } from '@/lib/api'; 
-import type { WantedPerson } from '@/lib/types'; 
+import { getPersonDetails } from '@/lib/api'; 
+import type { WantedPerson, WantedSource } from '@/lib/types'; 
 import { PersonDetailsCard } from '@/components/PersonDetailsCard';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { UserX } from "lucide-react";
@@ -11,24 +11,24 @@ export const revalidate = 86400; // Revalidate data for this page once a day (24
 
 interface PersonDetailsPageProps {
   params: {
-    source: 'fbi'; 
+    source: WantedSource;
     id: string;
   };
 }
 
 export async function generateMetadata({ params }: PersonDetailsPageProps) {
-  const person = await getFBIPersonDetails(params.id); 
+  const person = await getPersonDetails(params.source, params.id); 
   if (!person) {
     return { title: 'Person Not Found | Global Watch' };
   }
   return {
     title: `${person.name || 'Wanted Person'} | Global Watch`,
-    description: `Details for ${person.name || 'wanted person'} from the FBI.`,
+    description: `Details for ${person.name || 'wanted person'} from ${person.source}.`,
   };
 }
 
 export default async function PersonDetailsPage({ params }: PersonDetailsPageProps) {
-  const person = await getFBIPersonDetails(params.id);
+  const person = await getPersonDetails(params.source, params.id);
 
   if (!person) {
     return (
@@ -37,7 +37,7 @@ export default async function PersonDetailsPage({ params }: PersonDetailsPagePro
         <Alert variant="destructive" className="max-w-md">
           <AlertTitle className="font-headline text-2xl">Person Not Found</AlertTitle>
           <AlertDescription className="text-base">
-            The requested person (FBI ID: {params.id}) could not be found.
+            The requested record ({params.source}: {params.id}) could not be found.
             They may have been captured, the information removed, or the ID may be incorrect.
           </AlertDescription>
         </Alert>

@@ -28,6 +28,7 @@ export interface FBIWantedItem {
   reward_min: number;
   reward_max: number;
   dates_of_publication: { start_date: string | null; end_date: string | null }[];
+  dates_of_birth_used?: string[];
   publication: string; // Example: "2023-10-26T10:00:00"
   url: string;
   field_offices: string[] | null;
@@ -79,11 +80,13 @@ export type PersonClassification =
   | 'CAPTURED'
   | 'UNSPECIFIED';
 
-// Simplified Data Structure for FBI Only
+export type WantedSource = 'fbi' | 'eu-most-wanted' | 'mjsp-captura';
+
+// Canonical record shared by all public sources.
 export interface WantedPerson {
-  id: string; // Will be fbi-uid
+  id: string;
   rawId: string; // uid
-  source: 'fbi'; // Always 'fbi'
+  source: WantedSource;
   name: string | null;
   images: string[];
   thumbnailUrl?: string;
@@ -106,8 +109,9 @@ export interface WantedPerson {
   fieldOffices?: string[] | null;
   possibleCountries?: string[] | null;
   aliases?: string[] | null;
-  originalData: FBIWantedItem;
+  originalData: unknown;
   detailsUrl: string;
+  sourceUrl?: string;
   classification: PersonClassification;
   caseTypeDescription?: string | null;
   status?: string; // To store the original status, e.g., 'captured'

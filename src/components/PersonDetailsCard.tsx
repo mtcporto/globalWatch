@@ -2,10 +2,11 @@
 "use client";
 
 import Image from 'next/image';
-import type { WantedPerson, FBIWantedItem } from '@/lib/types'; // Updated import
+import type { FBIWantedItem, WantedPerson } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { getPrimaryImageUrl } from '@/lib/api';
+import { getDisplayImageUrl } from '@/lib/image-url';
 import {
   AlertTriangle, Award, Briefcase, CalendarDays, FileText, Globe, MapPin, User, Users, Fingerprint, Scale, Languages, UserMinus, Info, Search, ShieldQuestion, HelpCircle, UserCheck, Baby, Laptop, UserRoundX, UserRoundSearch
 } from 'lucide-react';
@@ -61,9 +62,14 @@ function DetailItem({ icon: Icon, label, value, isList = false }: DetailItemProp
 
 
 export function PersonDetailsCard({ person }: { person: WantedPerson }) {
-  const fbiData = person.originalData as FBIWantedItem; // Data is always FBI
+  const fbiData = person.source === 'fbi' ? person.originalData as FBIWantedItem : null;
+  const sourceLabel = person.source === 'fbi'
+    ? 'FBI Most Wanted'
+    : person.source === 'eu-most-wanted'
+      ? 'EU Most Wanted'
+      : 'MJSP Captura';
 
-  const primaryImage = getPrimaryImageUrl(person);
+  const primaryImage = getDisplayImageUrl(getPrimaryImageUrl(person), person.source);
   const placeholderImage = `https://placehold.co/600x800.png?text=${encodeURIComponent(person.name || 'N/A')}`;
 
   const [formattedPublicationDate, setFormattedPublicationDate] = useState<string | null>(null);
@@ -96,7 +102,7 @@ export function PersonDetailsCard({ person }: { person: WantedPerson }) {
       case 'SEEKING_INFORMATION':
         return <Badge variant="secondary" className={`${baseClasses} bg-green-500 text-white`}><Info className="mr-1 h-4 w-4"/>Seeking Information</Badge>;
       case 'WANTED_CRIMINAL':
-         return <Badge variant='destructive' className={`${baseClasses}`}><ShieldQuestion className="mr-1 h-4 w-4"/> FBI Most Wanted</Badge>;
+         return <Badge variant='destructive' className={`${baseClasses}`}><ShieldQuestion className="mr-1 h-4 w-4"/> {sourceLabel}</Badge>;
       case 'CYBER_MOST_WANTED':
         return <Badge variant='destructive' className={`${baseClasses} bg-purple-600 text-white`}><Laptop className="mr-1 h-4 w-4"/>Cyber Most Wanted</Badge>;
       case 'CRIMES_AGAINST_CHILDREN':
@@ -134,7 +140,14 @@ export function PersonDetailsCard({ person }: { person: WantedPerson }) {
             <CardDescription className="text-lg text-muted-foreground">
               {person.caseTypeDescription || 'Details not specified.'}
             </CardDescription>
-             <div className="mt-2 text-xs text-muted-foreground">FBI UID: {person.rawId}</div>
+             <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+               <span>{person.source.toUpperCase()} ID: {person.rawId}</span>
+               {person.sourceUrl && (
+                 <a href={person.sourceUrl} target="_blank" rel="noreferrer" className="text-primary underline-offset-4 hover:underline">
+                   View official source
+                 </a>
+               )}
+             </div>
           </div>
         </div>
       </CardHeader>
@@ -158,7 +171,7 @@ export function PersonDetailsCard({ person }: { person: WantedPerson }) {
           {person.age && <DetailItem icon={User} label="Age" value={person.age.toString()} />}
           <DetailItem icon={MapPin} label="Place of Birth" value={person.placeOfBirth} />
           <DetailItem icon={Globe} label="Nationality" value={person.nationality?.join(', ')} />
-          {fbiData?.race && <DetailItem icon={Users} label="Race" value={fbiData.race} />}
+          {person.race && <DetailItem icon={Users} label="Race" value={person.race} />}
           {fbiData?.languages && fbiData.languages.length > 0 && <DetailItem icon={Languages} label="Languages" value={fbiData.languages.join(', ')} />}
         </div>
 
@@ -201,8 +214,8 @@ export function PersonDetailsCard({ person }: { person: WantedPerson }) {
              <DetailItem icon={MapPin} label="Possible States (FBI)" value={fbiData.possible_states.join(', ')} />
           )}
           {fbiData?.ncic && (person.classification === 'WANTED_CRIMINAL' || person.classification === 'CYBER_MOST_WANTED' || person.classification === 'CRIMES_AGAINST_CHILDREN' || person.classification === 'UNSPECIFIED') && <DetailItem icon={Fingerprint} label="NCIC" value={fbiData.ncic} />}
-          <DetailItem icon={CalendarDays} label="Publication Date (FBI)" value={formattedPublicationDate || (fbiData?.publication ? fbiData.publication.split("T")[0] : null)} />
-          <DetailItem icon={CalendarDays} label="Last Modified (FBI)" value={formattedModifiedDate || (fbiData?.modified ? fbiData.modified.split("T")[0] : null)} />
+          <DetailItem icon={CalendarDays} label={`Publication Date (${sourceLabel})`} value={formattedPublicationDate || (fbiData?.publication ? fbiData.publication.split("T")[0] : null)} />
+          <DetailItem icon={CalendarDays} label={`Last Modified (${sourceLabel})`} value={formattedModifiedDate || (fbiData?.modified ? fbiData.modified.split("T")[0] : null)} />
         </div>
         
         {person.images && person.images.length > 1 && (
@@ -212,7 +225,7 @@ export function PersonDetailsCard({ person }: { person: WantedPerson }) {
               {person.images.slice(1).map((imgUrl, index) => (
                 imgUrl && <div key={index} className="relative aspect-square rounded-md overflow-hidden border">
                   <Image
-                    src={imgUrl}
+                    src={getDisplayImageUrl(imgUrl, person.source)}
                     alt={`Additional photo ${index + 1} of ${person.name || 'person'}`}
                     layout="fill"
                     objectFit="cover"

@@ -1,165 +1,63 @@
+import { Activity, ArrowRight, Database, Globe2, ShieldCheck } from 'lucide-react';
+import Link from 'next/link';
+import { getAllGlobalWantedData } from '@/lib/api';
+import type { WantedPerson } from '@/lib/types';
+import { WantedExplorer } from '@/components/WantedExplorer';
 
-import { getAllFBIWantedData } from '@/lib/api'; 
-import type { WantedPerson, PersonClassification } from '@/lib/types';
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  Search, ShieldQuestion, UserX, Info, HelpCircle, Users, Activity, 
-  Laptop, Baby, UserCheck, AlertTriangle, FileText, UserRoundX, UserRoundSearch
-} from "lucide-react";
-import { PaginatedCategoryContent } from '@/components/PaginatedCategoryContent';
-
-export const revalidate = 604800; // Revalidate data every 7 days (60 * 60 * 24 * 7)
-
-const classificationTitles: Record<PersonClassification, string> = {
-  WANTED_CRIMINAL: "Most Wanted",
-  CYBER_MOST_WANTED: "Cyber's Most Wanted",
-  CRIMES_AGAINST_CHILDREN: "Crimes Against Children",
-  MISSING_PERSON: "Missing Persons",
-  UNIDENTIFIED_PERSON: "Unidentified Persons",
-  VICTIM_OF_CRIME: "Victims of Crime",
-  SEEKING_INFORMATION: "Seeking Info",
-  CAPTURED: "Captured / Resolved",
-  UNSPECIFIED: "Other Cases"
-};
-
-const classificationIcons: Record<PersonClassification, React.ElementType> = {
-  WANTED_CRIMINAL: ShieldQuestion,
-  CYBER_MOST_WANTED: Laptop,
-  CRIMES_AGAINST_CHILDREN: Baby,
-  MISSING_PERSON: UserRoundX, // Changed from UserX
-  UNIDENTIFIED_PERSON: UserRoundSearch, // Changed from Search
-  VICTIM_OF_CRIME: AlertTriangle, 
-  SEEKING_INFORMATION: Info,
-  CAPTURED: UserCheck,
-  UNSPECIFIED: HelpCircle
-};
-
-const classificationOrder: PersonClassification[] = [
-  'WANTED_CRIMINAL',
-  'CYBER_MOST_WANTED',
-  'CRIMES_AGAINST_CHILDREN',
-  'MISSING_PERSON',
-  'SEEKING_INFORMATION',
-  'UNIDENTIFIED_PERSON',
-  'VICTIM_OF_CRIME',
-  'CAPTURED',
-  'UNSPECIFIED'
-];
+export const revalidate = 21600;
 
 export default async function HomePage() {
-  const allFBIPersons: WantedPerson[] = await getAllFBIWantedData();
-
-  if (!allFBIPersons || allFBIPersons.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[calc(100vh-200px)]">
-        <Search className="w-16 h-16 text-muted-foreground mb-4" />
-        <h2 className="text-2xl font-semibold mb-2">No Data Found</h2>
-        <p className="text-muted-foreground">
-          Could not retrieve data from the FBI at this moment. Please try again later.
-        </p>
-      </div>
-    );
-  }
-
-  const groupedPersons: Partial<Record<PersonClassification, WantedPerson[]>> = {};
-  allFBIPersons.forEach(person => {
-    const classification = person.classification || 'UNSPECIFIED';
-    if (!groupedPersons[classification]) {
-      groupedPersons[classification] = [];
-    }
-    groupedPersons[classification]?.push(person);
-  });
-
-  const stats = classificationOrder.map(cls => ({
-    title: classificationTitles[cls],
-    value: groupedPersons[cls]?.length || 0,
-    icon: classificationIcons[cls],
-    colorClass: cls === 'WANTED_CRIMINAL' || cls === 'CYBER_MOST_WANTED' || cls === 'CRIMES_AGAINST_CHILDREN' ? "text-destructive" 
-              : cls === 'MISSING_PERSON' || cls === 'UNIDENTIFIED_PERSON' ? "text-yellow-600" 
-              : cls === 'CAPTURED' ? "text-green-600"
-              : cls === 'VICTIM_OF_CRIME' ? "text-orange-600"
-              : "text-primary" 
-  })).filter(stat => stat.value > 0);
-
-  const totalAlertsStat = { title: "Total FBI Records Processed", value: allFBIPersons.length, icon: Activity, colorClass: "text-primary" };
-  const displayStats = [totalAlertsStat, ...stats];
-  
-  const activeClassifications = classificationOrder.filter(
-    c => groupedPersons[c] && groupedPersons[c]!.length > 0
-  );
+  const people: WantedPerson[] = await getAllGlobalWantedData();
+  const wantedCount = people.filter(person => person.classification === 'WANTED_CRIMINAL').length;
+  const missingCount = people.filter(person => person.classification === 'MISSING_PERSON').length;
+  const latestUpdate = people.reduce((latest, person) => {
+    const modified = person.originalData && typeof person.originalData === 'object' && 'modified' in person.originalData
+      ? String(person.originalData.modified || '')
+      : '';
+    return modified > latest ? modified : latest;
+  }, '');
 
   return (
-    <div className="space-y-12">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold font-headline text-primary">Global Watch</h1>
-        <p className="text-lg text-muted-foreground mt-2">FBI Wanted List & Public Information</p>
-      </div>
-      
-      <section className="space-y-6">
-        <h2 className="text-2xl font-bold font-headline text-primary text-center">Current Overview (Full FBI Dataset)</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {displayStats.map((stat) => (
-            <Card key={stat.title} className="shadow-lg hover:shadow-xl transition-shadow duration-300">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-base font-medium text-muted-foreground">{stat.title}</CardTitle>
-                <stat.icon className={`h-6 w-6 ${stat.colorClass || 'text-muted-foreground'}`} />
-              </CardHeader>
-              <CardContent>
-                <div className="text-4xl font-bold text-primary">{stat.value.toLocaleString()}</div>
-                 {stat.title === "Total FBI Records Processed" && <p className="text-xs text-muted-foreground">Reflects all records fetched & processed from the FBI API.</p>}
-              </CardContent>
-            </Card>
-          ))}
+    <div className="space-y-12 pb-10">
+      <section className="hero-panel relative overflow-hidden rounded-[2rem] px-6 py-10 text-primary-foreground shadow-xl sm:px-10 sm:py-14 lg:px-16">
+        <div className="relative z-10 max-w-3xl">
+          <div className="mb-5 flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-primary-foreground/70">
+            <span className="inline-flex items-center gap-2"><Globe2 className="h-4 w-4 text-accent" /> Public safety intelligence</span>
+            <span className="h-1 w-1 rounded-full bg-primary-foreground/40" />
+            <span>FBI catalog</span>
+          </div>
+          <h1 className="font-headline text-4xl font-bold leading-tight tracking-tight sm:text-6xl">Know who is being sought.</h1>
+          <p className="mt-5 max-w-2xl text-base leading-7 text-primary-foreground/75 sm:text-lg">
+            A clearer way to explore official public records for wanted people, missing persons, and cases seeking information.
+          </p>
+          <Link href="#records" className="mt-8 inline-flex items-center gap-2 rounded-md bg-accent px-5 py-3 text-sm font-semibold text-accent-foreground shadow-lg transition-transform hover:-translate-y-0.5">
+            Explore records <ArrowRight className="h-4 w-4" />
+          </Link>
         </div>
+        <div className="hero-grid absolute inset-0 opacity-30" aria-hidden="true" />
+        <div className="absolute -right-20 -top-24 h-80 w-80 rounded-full border-[3rem] border-accent/20" aria-hidden="true" />
       </section>
-      
-      {activeClassifications.length > 0 && (
-        <Tabs defaultValue={activeClassifications[0]} className="w-full">
-          <TabsList className="grid w-full grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:flex xl:flex-wrap xl:justify-center gap-1 mb-6">
-            {activeClassifications.map(classification => {
-                const IconComponent = classificationIcons[classification] || HelpCircle;
-                return (
-                  <TabsTrigger 
-                    key={classification} 
-                    value={classification} 
-                    className="px-3 py-1.5 text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-                  >
-                    <span className="flex items-center gap-2">
-                      <IconComponent className="h-4 w-4" />
-                      {classificationTitles[classification]} ({groupedPersons[classification]?.length || 0})
-                    </span>
-                  </TabsTrigger>
-                );
-            })}
-          </TabsList>
 
-          {activeClassifications.map(classification => {
-            const personsInClassification = groupedPersons[classification];
-            if (personsInClassification && personsInClassification.length > 0) { 
-              return (
-                <TabsContent key={classification} value={classification} className="mt-0 pt-6 border-t">
-                  <PaginatedCategoryContent items={personsInClassification} itemsPerPage={25} />
-                </TabsContent>
-              );
-            }
-            return null;
-          })}
-        </Tabs>
-      )}
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="metric-card"><Database className="h-5 w-5 text-accent" /><span className="metric-value">{people.length.toLocaleString()}</span><span className="metric-label">Records indexed</span></div>
+        <div className="metric-card"><ShieldCheck className="h-5 w-5 text-accent" /><span className="metric-value">{wantedCount.toLocaleString()}</span><span className="metric-label">Wanted people</span></div>
+        <div className="metric-card"><Activity className="h-5 w-5 text-accent" /><span className="metric-value">{missingCount.toLocaleString()}</span><span className="metric-label">Missing persons</span></div>
+        <div className="metric-card"><Globe2 className="h-5 w-5 text-accent" /><span className="metric-value">3</span><span className="metric-label">Active sources</span></div>
+      </section>
 
-      <Alert variant="default" className="border-primary/30 bg-primary/5 mt-12">
-        <ShieldQuestion className="h-5 w-5 text-primary mt-1" />
-        <AlertTitle className="text-primary font-semibold">Information Source & Purpose</AlertTitle>
-        <AlertDescription className="text-foreground/80">
-          This platform compiles publicly available information from the FBI.
-          It includes data on wanted individuals, missing persons, unidentified victims, victims of crime, and cases where public information is sought. 
-          For official inquiries or to report information, please refer directly to the FBI website. 
-          This site is for informational awareness only.
-        </AlertDescription>
-      </Alert>
+      <div className="flex flex-col gap-2 border-b border-border/70 pb-5 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="eyebrow">Data provenance</p>
+          <p className="text-sm text-muted-foreground">FBI, EU Most Wanted and Projeto Captura records, cached for faster browsing. Always verify details with the source agency.</p>
+        </div>
+        {latestUpdate && <p className="shrink-0 text-xs text-muted-foreground">Source updated {new Date(latestUpdate).toLocaleDateString()}</p>}
+      </div>
+
+      <WantedExplorer people={people} />
+
+      <footer className="rounded-2xl border border-accent/20 bg-accent/5 p-5 text-sm leading-6 text-muted-foreground">
+        Global Watch is an informational index, not a law-enforcement agency. A listing does not establish guilt. For tips, corrections, or official status, contact the relevant agency through its published website.
+      </footer>
     </div>
   );
 }
-
