@@ -459,11 +459,22 @@ export async function getFBIPersonDetails(id: string): Promise<WantedPerson | nu
 }
 
 export async function getAllGlobalWantedData(): Promise<WantedPerson[]> {
-  const [fbi, euMostWanted, mjspCaptura] = await Promise.all([
+  const results = await Promise.allSettled([
     getAllFBIWantedData(),
     getEuMostWantedData(),
     getMjspCapturaData(),
   ]);
+
+  const [fbi, euMostWanted, mjspCaptura] = results.map((result, index) => {
+    if (result.status === 'fulfilled') {
+      return result.value;
+    }
+
+    const source = ['FBI', 'EU Most Wanted', 'MJSP Captura'][index];
+    console.error(`[getAllGlobalWantedData] Failed to load ${source}`, result.reason);
+    return [];
+  });
+
   return [...fbi, ...euMostWanted, ...mjspCaptura];
 }
 
