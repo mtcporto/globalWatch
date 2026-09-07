@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Image host is not allowed' }, { status: 403 });
   }
 
-  const response = await fetch(parsedUrl, {
+  let response = await fetch(parsedUrl, {
     headers: {
       Accept: 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
       Referer: 'https://www.fbi.gov/',
@@ -30,7 +30,12 @@ export async function GET(request: NextRequest) {
   });
 
   if (!response.ok) {
-    return NextResponse.json({ error: 'Upstream image request failed' }, { status: response.status });
+    const fallbackUrl = `https://images.weserv.nl/?url=${encodeURIComponent(imageUrl)}`;
+    response = await fetch(fallbackUrl, { next: { revalidate: 86400 } });
+  }
+
+  if (!response.ok) {
+    return NextResponse.json({ error: 'Image request failed' }, { status: response.status });
   }
 
   return new NextResponse(response.body, {
