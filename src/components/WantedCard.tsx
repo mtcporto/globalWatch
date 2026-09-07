@@ -62,6 +62,7 @@ export function WantedCard({ person }: { person: WantedPerson }) {
                 objectFit="cover"
                 objectPosition="top"
                 className="bg-muted"
+                unoptimized
                 data-ai-hint="person portrait"
                 onError={() => setImageSrc(placeholderImage)}
               />

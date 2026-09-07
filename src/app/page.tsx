@@ -39,9 +39,9 @@ export default async function HomePage() {
       </section>
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="metric-card"><Database className="h-5 w-5 text-accent" /><span className="metric-value">{people.length.toLocaleString()}</span><span className="metric-label">Records indexed</span></div>
-        <div className="metric-card"><ShieldCheck className="h-5 w-5 text-accent" /><span className="metric-value">{wantedCount.toLocaleString()}</span><span className="metric-label">Wanted people</span></div>
-        <div className="metric-card"><Activity className="h-5 w-5 text-accent" /><span className="metric-value">{missingCount.toLocaleString()}</span><span className="metric-label">Missing persons</span></div>
+        <div className="metric-card"><Database className="h-5 w-5 text-accent" /><span className="metric-value">{people.length.toLocaleString('en-US')}</span><span className="metric-label">Records indexed</span></div>
+        <div className="metric-card"><ShieldCheck className="h-5 w-5 text-accent" /><span className="metric-value">{wantedCount.toLocaleString('en-US')}</span><span className="metric-label">Wanted people</span></div>
+        <div className="metric-card"><Activity className="h-5 w-5 text-accent" /><span className="metric-value">{missingCount.toLocaleString('en-US')}</span><span className="metric-label">Missing persons</span></div>
         <div className="metric-card"><Globe2 className="h-5 w-5 text-accent" /><span className="metric-value">3</span><span className="metric-label">Active sources</span></div>
       </section>
 

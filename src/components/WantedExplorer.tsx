@@ -74,7 +74,7 @@ export function WantedExplorer({ people }: WantedExplorerProps) {
       })
       .sort((first, second) => {
         const sourceDifference = sourceOrder[first.source] - sourceOrder[second.source];
-        return sourceDifference || (first.name ?? '').localeCompare(second.name ?? '');
+        return sourceDifference || (first.name ?? '').localeCompare(second.name ?? '', 'en-US');
       });
   }, [classification, people, query, source]);
 
@@ -113,7 +113,7 @@ export function WantedExplorer({ people }: WantedExplorerProps) {
         </div>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <SlidersHorizontal className="h-4 w-4" />
-          <span>{filteredPeople.length.toLocaleString()} matching records</span>
+          <span>{filteredPeople.length.toLocaleString('en-US')} matching records</span>
         </div>
       </div>
 
