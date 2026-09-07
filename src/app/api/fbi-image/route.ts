@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const FBI_HOSTNAME = 'www.fbi.gov';
+const FBI_HOSTNAMES = new Set(['www.fbi.gov', 'fbi.gov']);
 
 export async function GET(request: NextRequest) {
   const imageUrl = request.nextUrl.searchParams.get('url');
@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid image URL' }, { status: 400 });
   }
 
-  if (parsedUrl.protocol !== 'https:' || parsedUrl.hostname !== FBI_HOSTNAME) {
+  if (parsedUrl.protocol !== 'https:' || !FBI_HOSTNAMES.has(parsedUrl.hostname)) {
     return NextResponse.json({ error: 'Image host is not allowed' }, { status: 403 });
   }
 
