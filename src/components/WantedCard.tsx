@@ -36,6 +36,8 @@ export function WantedCard({ person }: { person: WantedPerson }) {
         return <Badge variant="secondary" className="absolute top-2 right-2 bg-blue-400 text-black flex items-center gap-1 text-xs py-0.5 px-1.5"><Search className="h-3 w-3"/>Unidentified</Badge>;
       case 'SEEKING_INFORMATION':
         return <Badge variant="secondary" className="absolute top-2 right-2 bg-green-500 text-white flex items-center gap-1 text-xs py-0.5 px-1.5"><Info className="h-3 w-3"/>Seeking Info</Badge>;
+      case 'VICTIM_OF_CRIME':
+        return <Badge variant="secondary" className="absolute top-2 right-2 bg-orange-500 text-white flex items-center gap-1 text-xs py-0.5 px-1.5"><Info className="h-3 w-3"/>Victim of Crime</Badge>;
       case 'WANTED_CRIMINAL':
       default: // Also covers UNSPECIFIED if it somehow appears before specific badge logic
         return <Badge 
@@ -92,13 +94,16 @@ export function WantedCard({ person }: { person: WantedPerson }) {
               {!person.fieldOffices?.[0] && person.classification === 'SEEKING_INFORMATION' && (
                 <span className="flex items-center"><Info className="h-3 w-3 mr-1 text-green-600"/> Seeking Information</span>
               )}
+              {!person.fieldOffices?.[0] && person.classification === 'VICTIM_OF_CRIME' && (
+                <span className="flex items-center"><Info className="h-3 w-3 mr-1 text-orange-600"/> Victim of Crime</span>
+              )}
               {!person.fieldOffices?.[0] && person.classification === 'UNIDENTIFIED_PERSON' && (
                 <span className="flex items-center"><Search className="h-3 w-3 mr-1 text-blue-600"/> Victim Identification</span>
               )}
               {!person.fieldOffices?.[0] && person.classification === 'CAPTURED' && (
                 <span className="flex items-center"><CheckCircle2 className="h-3 w-3 mr-1 text-green-600"/> Resolved</span>
               )}
-              {!person.fieldOffices?.[0] && person.classification !== 'WANTED_CRIMINAL' && person.classification !== 'MISSING_PERSON' && person.classification !== 'SEEKING_INFORMATION' && person.classification !== 'UNIDENTIFIED_PERSON' && person.classification !== 'CAPTURED' && (
+              {!person.fieldOffices?.[0] && person.classification !== 'WANTED_CRIMINAL' && person.classification !== 'MISSING_PERSON' && person.classification !== 'SEEKING_INFORMATION' && person.classification !== 'VICTIM_OF_CRIME' && person.classification !== 'UNIDENTIFIED_PERSON' && person.classification !== 'CAPTURED' && (
                 <span className="flex items-center"><Globe2 className="h-3 w-3 mr-1 text-primary/70"/> {person.source.toUpperCase()} source</span>
               )}
                {!person.fieldOffices?.[0] && person.classification === 'UNSPECIFIED' && (
