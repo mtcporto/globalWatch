@@ -12,9 +12,6 @@ import type { WantedSource } from './types';
 const FBI_API_BASE_URL = 'https://api.fbi.gov/wanted/v1/list';
 const FBI_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 
-// Helper function to introduce a delay
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
 // Helper to safely fetch JSON
 async function fetchJson<T>(url: string, options: RequestInit = {}): Promise<T | null> {
   try {
@@ -360,57 +357,39 @@ export async function getAllFBIWantedData(itemsPerPage: number = 50): Promise<Wa
   }
 
   console.log('[getAllFBIWantedData] Starting full data fetch from FBI API...');
-  let allNormalizedPersons: WantedPerson[] = [];
-  let currentPage = 1;
-  const MAX_API_CALLS = 60; 
-  let apiReportedTotalItems = 0;
-  let successfullyFetchedItems = 0;
+  const MAX_API_CALLS = 60;
+  const PAGE_BATCH_SIZE = 8;
 
   const actualPageSize = Math.min(itemsPerPage, 50);
+  const firstPage = await fetchSingleFBIPage(1, actualPageSize);
 
-  for (let i = 0; i < MAX_API_CALLS; i++) {
-    if (i > 0) { // Delay for subsequent calls
-      await delay(1500); 
-    }
-    console.log(`[getAllFBIWantedData] Fetching page ${currentPage} with pageSize ${actualPageSize}...`);
-    const response = await fetchSingleFBIPage(currentPage, actualPageSize);
+  if (!firstPage?.items) {
+    console.error('[getAllFBIWantedData] Critical error fetching first page. No items returned or API call failed.');
+    return [];
+  }
 
-    if (!response?.items) {
-      if (response === null && i > 0) { 
-         console.warn(`[getAllFBIWantedData] API call to page ${currentPage} (pageSize: ${actualPageSize}) failed or returned null. Stopping further fetches. Total fetched so far: ${successfullyFetchedItems}`);
-      } else if (response?.items === undefined && i > 0) { 
-         console.warn(`[getAllFBIWantedData] API call to page ${currentPage} (pageSize: ${actualPageSize}) returned no 'items' property. Stopping further fetches. Total fetched so far: ${successfullyFetchedItems}`);
-      } else if (i === 0) { 
-         console.error(`[getAllFBIWantedData] Critical error fetching first page (page ${currentPage}, pageSize: ${actualPageSize}). No items returned or API call failed. Aborting.`);
-      }
-      break; 
-    }
-    
-    if (i === 0 && response.total) {
-        apiReportedTotalItems = response.total;
-        console.log(`[getAllFBIWantedData] FBI API reports a total of ${apiReportedTotalItems} items. Fetching with pageSize: ${actualPageSize}.`);
-    }
+  const apiReportedTotalItems = firstPage.total || firstPage.items.length;
+  const totalPages = Math.min(MAX_API_CALLS, Math.ceil(apiReportedTotalItems / actualPageSize));
+  const pageNumbers = Array.from({ length: Math.max(0, totalPages - 1) }, (_, index) => index + 2);
+  const pageResponses: Array<FBIWantedResponse | null> = [firstPage];
 
-    const normalizedPageItems = response.items
+  console.log(`[getAllFBIWantedData] FBI API reports ${apiReportedTotalItems} items across ${totalPages} pages.`);
+
+  for (let offset = 0; offset < pageNumbers.length; offset += PAGE_BATCH_SIZE) {
+    const batchPages = pageNumbers.slice(offset, offset + PAGE_BATCH_SIZE);
+    const batchResponses = await Promise.all(
+      batchPages.map(page => fetchSingleFBIPage(page, actualPageSize)),
+    );
+    pageResponses.push(...batchResponses);
+    console.log(`[getAllFBIWantedData] Fetched pages ${batchPages[0]}-${batchPages[batchPages.length - 1]}.`);
+  }
+
+  const allNormalizedPersons = pageResponses.flatMap(response => response?.items || [])
       .map(item => normalizeFBIItem(item))
-      .filter(p => p.name && p.name.trim() !== ""); 
-    
-    allNormalizedPersons = allNormalizedPersons.concat(normalizedPageItems);
-    successfullyFetchedItems = allNormalizedPersons.length;
-    console.log(`[getAllFBIWantedData] Fetched ${normalizedPageItems.length} items from page ${currentPage}. Total normalized items so far: ${successfullyFetchedItems}`);
+      .filter(person => person.name && person.name.trim() !== "");
 
-    if ((apiReportedTotalItems > 0 && successfullyFetchedItems >= apiReportedTotalItems) || response.items.length < actualPageSize) {
-        console.log(`[getAllFBIWantedData] Stopping condition met. Successfully fetched items: ${successfullyFetchedItems}. API reported total: ${apiReportedTotalItems}. Last page items count: ${response.items.length} (pageSize: ${actualPageSize})`);
-        if (response.items.length < actualPageSize) {
-             console.log(`[getAllFBIWantedData] API returned ${response.items.length} items (less than pageSize ${actualPageSize}), assuming last page or end of available data.`);
-        }
-        break;
-    }
-    if (i === MAX_API_CALLS - 1 && successfullyFetchedItems < (apiReportedTotalItems || Infinity)) { 
-        console.warn(`[getAllFBIWantedData] Reached MAX_API_CALLS limit (${MAX_API_CALLS}). Fetched ${successfullyFetchedItems} out of ${apiReportedTotalItems || 'unknown total'} items.`);
-    }
-
-    currentPage++;
+  if (totalPages === MAX_API_CALLS && allNormalizedPersons.length < apiReportedTotalItems) {
+    console.warn(`[getAllFBIWantedData] Reached MAX_API_CALLS limit (${MAX_API_CALLS}). Fetched ${allNormalizedPersons.length} out of ${apiReportedTotalItems} items.`);
   }
   
   const uniquePersons = Array.from(new Map(allNormalizedPersons.map(p => [p.id, p])).values());
@@ -418,7 +397,7 @@ export async function getAllFBIWantedData(itemsPerPage: number = 50): Promise<Wa
   if (uniquePersons.length < successfullyFetchedItems) {
     console.warn(`[getAllFBIWantedData] Deduplicated ${successfullyFetchedItems - uniquePersons.length} items. Final count: ${uniquePersons.length}`);
   }
-  console.log(`[getAllFBIWantedData] Finished fetching. Total unique persons: ${uniquePersons.length} after ${currentPage -1} API calls to FBI.`);
+  console.log(`[getAllFBIWantedData] Finished fetching. Total unique persons: ${uniquePersons.length} from ${pageResponses.length} API calls to FBI.`);
 
   await saveRecords('fbi', uniquePersons);
   
