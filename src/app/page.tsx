@@ -4,8 +4,7 @@ import { getAllGlobalWantedData } from '@/lib/api';
 import type { WantedPerson } from '@/lib/types';
 import { WantedExplorer } from '@/components/WantedExplorer';
 
-export const dynamic = 'force-dynamic';
-export const maxDuration = 60;
+export const revalidate = 21600;
 
 export default async function HomePage() {
   const people: WantedPerson[] = await getAllGlobalWantedData();
