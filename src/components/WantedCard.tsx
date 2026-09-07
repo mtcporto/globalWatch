@@ -51,10 +51,10 @@ export function WantedCard({ person }: { person: WantedPerson }) {
   
   return (
     <Link href={person.detailsUrl} legacyBehavior>
-      <a className="block hover:shadow-lg transition-shadow duration-200 rounded-lg h-full">
+      <a className="group block h-full rounded-lg transition-shadow duration-200 hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
         <Card className="h-full flex flex-col overflow-hidden transform hover:scale-105 transition-transform duration-200">
           <CardHeader className="p-0 relative">
-            <div className="aspect-[4/3] w-full relative">
+            <div className="relative aspect-square w-full overflow-hidden">
               <Image
                 src={imageSrc}
                 alt={`Photo of ${person.name || 'person'}`}
@@ -65,6 +65,11 @@ export function WantedCard({ person }: { person: WantedPerson }) {
                 data-ai-hint="person portrait"
                 onError={() => setImageSrc(placeholderImage)}
               />
+              <div className="pointer-events-none absolute inset-0 flex items-end bg-gradient-to-t from-black/85 via-black/20 to-transparent p-4 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-visible:opacity-100">
+                <p className="line-clamp-4 text-sm font-medium leading-5 text-white">
+                  {cardDescription}
+                </p>
+              </div>
             </div>
             {getClassificationBadge()}
           </CardHeader>
