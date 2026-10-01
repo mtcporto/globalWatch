@@ -10,14 +10,15 @@ import { Button } from '@/components/ui/button';
 export const revalidate = 86400; // Revalidate data for this page once a day (24 * 60 * 60 seconds)
 
 interface PersonDetailsPageProps {
-  params: {
+  params: Promise<{
     source: WantedSource;
     id: string;
-  };
+  }>;
 }
 
 export async function generateMetadata({ params }: PersonDetailsPageProps) {
-  const person = await getPersonDetails(params.source, params.id); 
+  const { source, id } = await params;
+  const person = await getPersonDetails(source, id); 
   if (!person) {
     return { title: 'Person Not Found | Global Watch' };
   }
@@ -28,7 +29,8 @@ export async function generateMetadata({ params }: PersonDetailsPageProps) {
 }
 
 export default async function PersonDetailsPage({ params }: PersonDetailsPageProps) {
-  const person = await getPersonDetails(params.source, params.id);
+  const { source, id } = await params;
+  const person = await getPersonDetails(source, id);
 
   if (!person) {
     return (
@@ -37,7 +39,7 @@ export default async function PersonDetailsPage({ params }: PersonDetailsPagePro
         <Alert variant="destructive" className="max-w-md">
           <AlertTitle className="font-headline text-2xl">Person Not Found</AlertTitle>
           <AlertDescription className="text-base">
-            The requested record ({params.source}: {params.id}) could not be found.
+            The requested record ({source}: {id}) could not be found.
             They may have been captured, the information removed, or the ID may be incorrect.
           </AlertDescription>
         </Alert>

@@ -394,8 +394,8 @@ export async function getAllFBIWantedData(itemsPerPage: number = 50): Promise<Wa
   
   const uniquePersons = Array.from(new Map(allNormalizedPersons.map(p => [p.id, p])).values());
   
-  if (uniquePersons.length < successfullyFetchedItems) {
-    console.warn(`[getAllFBIWantedData] Deduplicated ${successfullyFetchedItems - uniquePersons.length} items. Final count: ${uniquePersons.length}`);
+  if (uniquePersons.length < allNormalizedPersons.length) {
+    console.warn(`[getAllFBIWantedData] Deduplicated ${allNormalizedPersons.length - uniquePersons.length} items. Final count: ${uniquePersons.length}`);
   }
   console.log(`[getAllFBIWantedData] Finished fetching. Total unique persons: ${uniquePersons.length} from ${pageResponses.length} API calls to FBI.`);
 
