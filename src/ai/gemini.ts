@@ -8,7 +8,7 @@ export async function generateGemini(
   if (typeof window !== 'undefined') throw new Error('Gemini requires a server runtime');
   const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
   if (!apiKey) throw new Error('Configure GEMINI_API_KEY or GOOGLE_API_KEY');
-  const model = options.model || process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+  const model = options.model || process.env.GEMINI_MODEL || 'gemini-3.8-flash';
   if (!/^[a-zA-Z0-9._-]+$/.test(model)) throw new Error('Invalid Gemini model');
   const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
     method: 'POST',

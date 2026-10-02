@@ -28,11 +28,11 @@ test('preserves inline image response and image request modalities', async () =>
   process.env.GEMINI_API_KEY = 'test-only-placeholder';
   const image = { inlineData: { mimeType: 'image/png', data: 'dGVzdA==' } };
   globalThis.fetch = async (url, options) => {
-    assert.match(url, /gemini-2.5-flash-image:generateContent$/);
+    assert.match(url, /gemini-3.1-flash-image:generateContent$/);
     assert.deepEqual(JSON.parse(options.body).contents[0].parts, [image]);
     return Response.json({ candidates: [{ content: { parts: [image] } }] });
   };
-  assert.deepEqual(await generateGemini([image], { model: 'gemini-2.5-flash-image' }), [image]);
+  assert.deepEqual(await generateGemini([image], { model: 'gemini-3.1-flash-image' }), [image]);
 });
 test('rejects absent credentials, provider errors, blocked and malformed output', async () => {
   delete process.env.GEMINI_API_KEY; delete process.env.GOOGLE_API_KEY;

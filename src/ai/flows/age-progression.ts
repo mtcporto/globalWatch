@@ -40,7 +40,7 @@ export async function ageProgression(rawInput: AgeProgressionInput): Promise<Age
   const parts = await generateGemini([
     { inlineData: { mimeType: match[1], data: match[2] } },
     { text: `Generate an image of this person, but aged by ${input.yearsElapsed} years.` },
-  ], { model: process.env.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-image', generationConfig: { responseModalities: ['TEXT', 'IMAGE'] } });
+  ], { model: process.env.GEMINI_IMAGE_MODEL || 'gemini-3.1-flash-image', generationConfig: { responseModalities: ['TEXT', 'IMAGE'] } });
   const image = parts.find(part => part.inlineData?.mimeType?.startsWith('image/'))?.inlineData;
   if (!image?.data || !/^image\/(png|jpeg|webp)$/.test(image.mimeType)) throw new Error('Gemini returned no supported image');
   return AgeProgressionOutputSchema.parse({ updatedPhotoDataUri: `data:${image.mimeType};base64,${image.data}` });
