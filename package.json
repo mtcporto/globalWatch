@@ -68,6 +68,7 @@
   "overrides": {
     "next": {
       "postcss": "^8.5.26"
-    }
+    },
+    "@grpc/grpc-js": "1.14.5"
   }
 }
