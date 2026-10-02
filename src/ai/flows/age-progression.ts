@@ -8,8 +8,8 @@
  * - AgeProgressionOutput - The return type for the ageProgression function.
  */
 
-import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
+import {generateGemini} from '@/ai/gemini';
+import {z} from 'zod';
 
 const AgeProgressionInputSchema = z.object({
   photoDataUri: z
@@ -32,34 +32,16 @@ const AgeProgressionOutputSchema = z.object({
 
 export type AgeProgressionOutput = z.infer<typeof AgeProgressionOutputSchema>;
 
-export async function ageProgression(input: AgeProgressionInput): Promise<AgeProgressionOutput> {
-  return ageProgressionFlow(input);
+export async function ageProgression(rawInput: AgeProgressionInput): Promise<AgeProgressionOutput> {
+  const input = AgeProgressionInputSchema.parse(rawInput);
+  const match = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/]+={0,2})$/.exec(input.photoDataUri);
+  if (!match || input.photoDataUri.length > 14_000_000) throw new Error('Provide a JPEG, PNG or WebP image up to 10 MB');
+  if (!Number.isFinite(input.yearsElapsed) || input.yearsElapsed < 0 || input.yearsElapsed > 120) throw new Error('Invalid elapsed years');
+  const parts = await generateGemini([
+    { inlineData: { mimeType: match[1], data: match[2] } },
+    { text: `Generate an image of this person, but aged by ${input.yearsElapsed} years.` },
+  ], { model: process.env.GEMINI_IMAGE_MODEL || 'gemini-3.1-flash-image', generationConfig: { responseModalities: ['TEXT', 'IMAGE'] } });
+  const image = parts.find(part => part.inlineData?.mimeType?.startsWith('image/'))?.inlineData;
+  if (!image?.data || !/^image\/(png|jpeg|webp)$/.test(image.mimeType)) throw new Error('Gemini returned no supported image');
+  return AgeProgressionOutputSchema.parse({ updatedPhotoDataUri: `data:${image.mimeType};base64,${image.data}` });
 }
-
-const ageProgressionPrompt = ai.definePrompt({
-  name: 'ageProgressionPrompt',
-  input: {schema: AgeProgressionInputSchema},
-  output: {schema: AgeProgressionOutputSchema},
-  prompt: [
-    {media: {url: '{{{photoDataUri}}}'}},
-    {
-      text:
-        'Generate an image of this person, but aged by {{{yearsElapsed}}} years.',
-    },
-  ],
-  config: {
-    responseModalities: ['TEXT', 'IMAGE'],
-  },
-});
-
-const ageProgressionFlow = ai.defineFlow(
-  {
-    name: 'ageProgressionFlow',
-    inputSchema: AgeProgressionInputSchema,
-    outputSchema: AgeProgressionOutputSchema,
-  },
-  async input => {
-    const {media} = await ageProgressionPrompt(input);
-    return {updatedPhotoDataUri: media!.url!};
-  }
-);
