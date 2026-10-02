@@ -1,1 +1,1 @@
-Genkit foi substituido por chamadas REST ao Gemini no servidor, com validacao Zod de entrada e saida. Configure GEMINI_API_KEY ou GOOGLE_API_KEY. GEMINI_MODEL permite escolher o modelo de texto (padrao gemini-3.8-flash); GEMINI_IMAGE_MODEL permite escolher o modelo de imagem (padrao gemini-3.1-flash-image). A interface de desenvolvimento Genkit foi removida. Testes usam respostas simuladas, sem enviar dados nem consumir a API.
+A situação atual da IA está documentada em [AI.md](AI.md).

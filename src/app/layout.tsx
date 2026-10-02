@@ -5,7 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 
 export const metadata: Metadata = {
   title: 'Global Watch',
-  description: 'Combined list of wanted individuals from FBI and Interpol, with age progression tool.',
+  description: 'Combined list of wanted individuals from FBI and Interpol.',
 };
 
 export default function RootLayout({
