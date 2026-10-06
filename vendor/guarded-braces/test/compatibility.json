@@ -1,0 +1,928 @@
+[
+  {
+    "pattern": "plain",
+    "options": {},
+    "result": [
+      "plain"
+    ]
+  },
+  {
+    "pattern": "plain",
+    "options": {
+      "expand": true
+    },
+    "result": [
+      "plain"
+    ]
+  },
+  {
+    "pattern": "plain",
+    "options": {
+      "expand": true,
+      "nodupes": true,
+      "noempty": true
+    },
+    "result": [
+      "plain"
+    ]
+  },
+  {
+    "pattern": "plain",
+    "options": {
+      "escapeInvalid": true
+    },
+    "result": [
+      "plain"
+    ]
+  },
+  {
+    "pattern": "{a,b}",
+    "options": {},
+    "result": [
+      "(a|b)"
+    ]
+  },
+  {
+    "pattern": "{a,b}",
+    "options": {
+      "expand": true
+    },
+    "result": [
+      "a",
+      "b"
+    ]
+  },
+  {
+    "pattern": "{a,b}",
+    "options": {
+      "expand": true,
+      "nodupes": true,
+      "noempty": true
+    },
+    "result": [
+      "a",
+      "b"
+    ]
+  },
+  {
+    "pattern": "{a,b}",
+    "options": {
+      "escapeInvalid": true
+    },
+    "result": [
+      "(a|b)"
+    ]
+  },
+  {
+    "pattern": "a/{b,c}/d",
+    "options": {},
+    "result": [
+      "a/(b|c)/d"
+    ]
+  },
+  {
+    "pattern": "a/{b,c}/d",
+    "options": {
+      "expand": true
+    },
+    "result": [
+      "a/b/d",
+      "a/c/d"
+    ]
+  },
+  {
+    "pattern": "a/{b,c}/d",
+    "options": {
+      "expand": true,
+      "nodupes": true,
+      "noempty": true
+    },
+    "result": [
+      "a/b/d",
+      "a/c/d"
+    ]
+  },
+  {
+    "pattern": "a/{b,c}/d",
+    "options": {
+      "escapeInvalid": true
+    },
+    "result": [
+      "a/(b|c)/d"
+    ]
+  },
+  {
+    "pattern": "{1..5}",
+    "options": {},
+    "result": [
+      "([1-5])"
+    ]
+  },
+  {
+    "pattern": "{1..5}",
+    "options": {
+      "expand": true
+    },
+    "result": [
+      "1",
+      "2",
+      "3",
+      "4",
+      "5"
+    ]
+  },
+  {
+    "pattern": "{1..5}",
+    "options": {
+      "expand": true,
+      "nodupes": true,
+      "noempty": true
+    },
+    "result": [
+      "1",
+      "2",
+      "3",
+      "4",
+      "5"
+    ]
+  },
+  {
+    "pattern": "{1..5}",
+    "options": {
+      "escapeInvalid": true
+    },
+    "result": [
+      "([1-5])"
+    ]
+  },
+  {
+    "pattern": "{01..05}",
+    "options": {},
+    "result": [
+      "(0[1-5])"
+    ]
+  },
+  {
+    "pattern": "{01..05}",
+    "options": {
+      "expand": true
+    },
+    "result": [
+      "01",
+      "02",
+      "03",
+      "04",
+      "05"
+    ]
+  },
+  {
+    "pattern": "{01..05}",
+    "options": {
+      "expand": true,
+      "nodupes": true,
+      "noempty": true
+    },
+    "result": [
+      "01",
+      "02",
+      "03",
+      "04",
+      "05"
+    ]
+  },
+  {
+    "pattern": "{01..05}",
+    "options": {
+      "escapeInvalid": true
+    },
+    "result": [
+      "(0[1-5])"
+    ]
+  },
+  {
+    "pattern": "{a..e}",
+    "options": {},
+    "result": [
+      "([a-e])"
+    ]
+  },
+  {
+    "pattern": "{a..e}",
+    "options": {
+      "expand": true
+    },
+    "result": [
+      "a",
+      "b",
+      "c",
+      "d",
+      "e"
+    ]
+  },
+  {
+    "pattern": "{a..e}",
+    "options": {
+      "expand": true,
+      "nodupes": true,
+      "noempty": true
+    },
+    "result": [
+      "a",
+      "b",
+      "c",
+      "d",
+      "e"
+    ]
+  },
+  {
+    "pattern": "{a..e}",
+    "options": {
+      "escapeInvalid": true
+    },
+    "result": [
+      "([a-e])"
+    ]
+  },
+  {
+    "pattern": "{1..9..2}",
+    "options": {},
+    "result": [
+      "(1|3|5|7|9)"
+    ]
+  },
+  {
+    "pattern": "{1..9..2}",
+    "options": {
+      "expand": true
+    },
+    "result": [
+      "1",
+      "3",
+      "5",
+      "7",
+      "9"
+    ]
+  },
+  {
+    "pattern": "{1..9..2}",
+    "options": {
+      "expand": true,
+      "nodupes": true,
+      "noempty": true
+    },
+    "result": [
+      "1",
+      "3",
+      "5",
+      "7",
+      "9"
+    ]
+  },
+  {
+    "pattern": "{1..9..2}",
+    "options": {
+      "escapeInvalid": true
+    },
+    "result": [
+      "(1|3|5|7|9)"
+    ]
+  },
+  {
+    "pattern": "{a,{b,c}}",
+    "options": {},
+    "result": [
+      "(a|(b|c))"
+    ]
+  },
+  {
+    "pattern": "{a,{b,c}}",
+    "options": {
+      "expand": true
+    },
+    "result": [
+      "a",
+      "b",
+      "c"
+    ]
+  },
+  {
+    "pattern": "{a,{b,c}}",
+    "options": {
+      "expand": true,
+      "nodupes": true,
+      "noempty": true
+    },
+    "result": [
+      "a",
+      "b",
+      "c"
+    ]
+  },
+  {
+    "pattern": "{a,{b,c}}",
+    "options": {
+      "escapeInvalid": true
+    },
+    "result": [
+      "(a|(b|c))"
+    ]
+  },
+  {
+    "pattern": "a{b,c}d{e,f}",
+    "options": {},
+    "result": [
+      "a(b|c)d(e|f)"
+    ]
+  },
+  {
+    "pattern": "a{b,c}d{e,f}",
+    "options": {
+      "expand": true
+    },
+    "result": [
+      "abde",
+      "abdf",
+      "acde",
+      "acdf"
+    ]
+  },
+  {
+    "pattern": "a{b,c}d{e,f}",
+    "options": {
+      "expand": true,
+      "nodupes": true,
+      "noempty": true
+    },
+    "result": [
+      "abde",
+      "abdf",
+      "acde",
+      "acdf"
+    ]
+  },
+  {
+    "pattern": "a{b,c}d{e,f}",
+    "options": {
+      "escapeInvalid": true
+    },
+    "result": [
+      "a(b|c)d(e|f)"
+    ]
+  },
+  {
+    "pattern": "foo/{bar,baz}/**/*.{js,ts}",
+    "options": {},
+    "result": [
+      "foo/(bar|baz)/**/*.(js|ts)"
+    ]
+  },
+  {
+    "pattern": "foo/{bar,baz}/**/*.{js,ts}",
+    "options": {
+      "expand": true
+    },
+    "result": [
+      "foo/bar/**/*.js",
+      "foo/bar/**/*.ts",
+      "foo/baz/**/*.js",
+      "foo/baz/**/*.ts"
+    ]
+  },
+  {
+    "pattern": "foo/{bar,baz}/**/*.{js,ts}",
+    "options": {
+      "expand": true,
+      "nodupes": true,
+      "noempty": true
+    },
+    "result": [
+      "foo/bar/**/*.js",
+      "foo/bar/**/*.ts",
+      "foo/baz/**/*.js",
+      "foo/baz/**/*.ts"
+    ]
+  },
+  {
+    "pattern": "foo/{bar,baz}/**/*.{js,ts}",
+    "options": {
+      "escapeInvalid": true
+    },
+    "result": [
+      "foo/(bar|baz)/**/*.(js|ts)"
+    ]
+  },
+  {
+    "pattern": "\\{a,b\\}",
+    "options": {},
+    "result": [
+      "{a,b}"
+    ]
+  },
+  {
+    "pattern": "\\{a,b\\}",
+    "options": {
+      "expand": true
+    },
+    "result": [
+      "{a,b}"
+    ]
+  },
+  {
+    "pattern": "\\{a,b\\}",
+    "options": {
+      "expand": true,
+      "nodupes": true,
+      "noempty": true
+    },
+    "result": [
+      "{a,b}"
+    ]
+  },
+  {
+    "pattern": "\\{a,b\\}",
+    "options": {
+      "escapeInvalid": true
+    },
+    "result": [
+      "{a,b}"
+    ]
+  },
+  {
+    "pattern": "\"{a,b}\"",
+    "options": {},
+    "result": [
+      "{a,b}"
+    ]
+  },
+  {
+    "pattern": "\"{a,b}\"",
+    "options": {
+      "expand": true
+    },
+    "result": [
+      "{a,b}"
+    ]
+  },
+  {
+    "pattern": "\"{a,b}\"",
+    "options": {
+      "expand": true,
+      "nodupes": true,
+      "noempty": true
+    },
+    "result": [
+      "{a,b}"
+    ]
+  },
+  {
+    "pattern": "\"{a,b}\"",
+    "options": {
+      "escapeInvalid": true
+    },
+    "result": [
+      "{a,b}"
+    ]
+  },
+  {
+    "pattern": "${foo}",
+    "options": {},
+    "result": [
+      "${foo}"
+    ]
+  },
+  {
+    "pattern": "${foo}",
+    "options": {
+      "expand": true
+    },
+    "result": [
+      "${foo}"
+    ]
+  },
+  {
+    "pattern": "${foo}",
+    "options": {
+      "expand": true,
+      "nodupes": true,
+      "noempty": true
+    },
+    "result": [
+      "${foo}"
+    ]
+  },
+  {
+    "pattern": "${foo}",
+    "options": {
+      "escapeInvalid": true
+    },
+    "result": [
+      "$\\{foo\\}"
+    ]
+  },
+  {
+    "pattern": "{,a,b}",
+    "options": {},
+    "result": [
+      "(|a|b)"
+    ]
+  },
+  {
+    "pattern": "{,a,b}",
+    "options": {
+      "expand": true
+    },
+    "result": [
+      "",
+      "a",
+      "b"
+    ]
+  },
+  {
+    "pattern": "{,a,b}",
+    "options": {
+      "expand": true,
+      "nodupes": true,
+      "noempty": true
+    },
+    "result": [
+      "a",
+      "b"
+    ]
+  },
+  {
+    "pattern": "{,a,b}",
+    "options": {
+      "escapeInvalid": true
+    },
+    "result": [
+      "(|a|b)"
+    ]
+  },
+  {
+    "pattern": "{}",
+    "options": {},
+    "result": [
+      "{}"
+    ]
+  },
+  {
+    "pattern": "{}",
+    "options": {
+      "expand": true
+    },
+    "result": [
+      "{}"
+    ]
+  },
+  {
+    "pattern": "{}",
+    "options": {
+      "expand": true,
+      "nodupes": true,
+      "noempty": true
+    },
+    "result": [
+      "{}"
+    ]
+  },
+  {
+    "pattern": "{}",
+    "options": {
+      "escapeInvalid": true
+    },
+    "result": [
+      "{}"
+    ]
+  },
+  {
+    "pattern": "a{b",
+    "options": {},
+    "result": [
+      "a{b"
+    ]
+  },
+  {
+    "pattern": "a{b",
+    "options": {
+      "expand": true
+    },
+    "result": [
+      "a{b"
+    ]
+  },
+  {
+    "pattern": "a{b",
+    "options": {
+      "expand": true,
+      "nodupes": true,
+      "noempty": true
+    },
+    "result": [
+      "a{b"
+    ]
+  },
+  {
+    "pattern": "a{b",
+    "options": {
+      "escapeInvalid": true
+    },
+    "result": [
+      "a\\{b"
+    ]
+  },
+  {
+    "pattern": "a(b(c))",
+    "options": {},
+    "result": [
+      "a(b(c))"
+    ]
+  },
+  {
+    "pattern": "a(b(c))",
+    "options": {
+      "expand": true
+    },
+    "result": [
+      "a(b(c))"
+    ]
+  },
+  {
+    "pattern": "a(b(c))",
+    "options": {
+      "expand": true,
+      "nodupes": true,
+      "noempty": true
+    },
+    "result": [
+      "a(b(c))"
+    ]
+  },
+  {
+    "pattern": "a(b(c))",
+    "options": {
+      "escapeInvalid": true
+    },
+    "result": [
+      "a(b(c))"
+    ]
+  },
+  {
+    "pattern": "{a,,b}",
+    "options": {},
+    "result": [
+      "(a|b)"
+    ]
+  },
+  {
+    "pattern": "{a,,b}",
+    "options": {
+      "expand": true
+    },
+    "result": [
+      "a",
+      "",
+      "b"
+    ]
+  },
+  {
+    "pattern": "{a,,b}",
+    "options": {
+      "expand": true,
+      "nodupes": true,
+      "noempty": true
+    },
+    "result": [
+      "a",
+      "b"
+    ]
+  },
+  {
+    "pattern": "{a,,b}",
+    "options": {
+      "escapeInvalid": true
+    },
+    "result": [
+      "(a|b)"
+    ]
+  },
+  {
+    "pattern": "{{a,b},{c,d}}",
+    "options": {},
+    "result": [
+      "((a|b)|(c|d))"
+    ]
+  },
+  {
+    "pattern": "{{a,b},{c,d}}",
+    "options": {
+      "expand": true
+    },
+    "result": [
+      "a",
+      "b",
+      "c",
+      "d"
+    ]
+  },
+  {
+    "pattern": "{{a,b},{c,d}}",
+    "options": {
+      "expand": true,
+      "nodupes": true,
+      "noempty": true
+    },
+    "result": [
+      "a",
+      "b",
+      "c",
+      "d"
+    ]
+  },
+  {
+    "pattern": "{{a,b},{c,d}}",
+    "options": {
+      "escapeInvalid": true
+    },
+    "result": [
+      "((a|b)|(c|d))"
+    ]
+  },
+  {
+    "pattern": "{a,b}{1..3}",
+    "options": {},
+    "result": [
+      "(a|b)([1-3])"
+    ]
+  },
+  {
+    "pattern": "{a,b}{1..3}",
+    "options": {
+      "expand": true
+    },
+    "result": [
+      "a1",
+      "a2",
+      "a3",
+      "b1",
+      "b2",
+      "b3"
+    ]
+  },
+  {
+    "pattern": "{a,b}{1..3}",
+    "options": {
+      "expand": true,
+      "nodupes": true,
+      "noempty": true
+    },
+    "result": [
+      "a1",
+      "a2",
+      "a3",
+      "b1",
+      "b2",
+      "b3"
+    ]
+  },
+  {
+    "pattern": "{a,b}{1..3}",
+    "options": {
+      "escapeInvalid": true
+    },
+    "result": [
+      "(a|b)([1-3])"
+    ]
+  },
+  {
+    "pattern": "[a-z]/{foo,bar}",
+    "options": {},
+    "result": [
+      "[a-z]/(foo|bar)"
+    ]
+  },
+  {
+    "pattern": "[a-z]/{foo,bar}",
+    "options": {
+      "expand": true
+    },
+    "result": [
+      "[a-z]/foo",
+      "[a-z]/bar"
+    ]
+  },
+  {
+    "pattern": "[a-z]/{foo,bar}",
+    "options": {
+      "expand": true,
+      "nodupes": true,
+      "noempty": true
+    },
+    "result": [
+      "[a-z]/foo",
+      "[a-z]/bar"
+    ]
+  },
+  {
+    "pattern": "[a-z]/{foo,bar}",
+    "options": {
+      "escapeInvalid": true
+    },
+    "result": [
+      "[a-z]/(foo|bar)"
+    ]
+  },
+  {
+    "pattern": "{1..5}/../{x,y}",
+    "options": {},
+    "result": [
+      "([1-5])/../(x|y)"
+    ]
+  },
+  {
+    "pattern": "{1..5}/../{x,y}",
+    "options": {
+      "expand": true
+    },
+    "result": [
+      "1/../x",
+      "1/../y",
+      "2/../x",
+      "2/../y",
+      "3/../x",
+      "3/../y",
+      "4/../x",
+      "4/../y",
+      "5/../x",
+      "5/../y"
+    ]
+  },
+  {
+    "pattern": "{1..5}/../{x,y}",
+    "options": {
+      "expand": true,
+      "nodupes": true,
+      "noempty": true
+    },
+    "result": [
+      "1/../x",
+      "1/../y",
+      "2/../x",
+      "2/../y",
+      "3/../x",
+      "3/../y",
+      "4/../x",
+      "4/../y",
+      "5/../x",
+      "5/../y"
+    ]
+  },
+  {
+    "pattern": "{1..5}/../{x,y}",
+    "options": {
+      "escapeInvalid": true
+    },
+    "result": [
+      "([1-5])/../(x|y)"
+    ]
+  },
+  {
+    "pattern": "{foo,bar,baz}",
+    "options": {},
+    "result": [
+      "(foo|bar|baz)"
+    ]
+  },
+  {
+    "pattern": "{foo,bar,baz}",
+    "options": {
+      "expand": true
+    },
+    "result": [
+      "foo",
+      "bar",
+      "baz"
+    ]
+  },
+  {
+    "pattern": "{foo,bar,baz}",
+    "options": {
+      "expand": true,
+      "nodupes": true,
+      "noempty": true
+    },
+    "result": [
+      "foo",
+      "bar",
+      "baz"
+    ]
+  },
+  {
+    "pattern": "{foo,bar,baz}",
+    "options": {
+      "escapeInvalid": true
+    },
+    "result": [
+      "(foo|bar|baz)"
+    ]
+  }
+]
