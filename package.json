@@ -6,7 +6,7 @@
     "dev": "NODE_OPTIONS=--no-addons next dev -p 9002",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test:braces-security": "node --test vendor/guarded-braces/test/security.test.cjs"
   },
@@ -40,11 +40,11 @@
     "dotenv": "^16.5.0",
     "firebase": "^11.8.1",
     "lucide-react": "^0.475.0",
-    "next": "15.5.27",
+    "next": "16.4.2",
     "patch-package": "^8.0.0",
-    "react": "^18.3.1",
-    "react-day-picker": "^8.10.1",
-    "react-dom": "^18.3.1",
+    "react": "19.3.0",
+    "react-day-picker": "^9.0.0",
+    "react-dom": "19.3.0",
     "react-hook-form": "^7.54.2",
     "recharts": "^2.15.1",
     "tailwind-merge": "^3.0.1",
@@ -55,11 +55,11 @@
   "devDependencies": {
     "@tailwindcss/typography": "^0.5.13",
     "@types/node": "^20.19.0",
-    "@types/react": "^18",
-    "@types/react-dom": "^18",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
-    "typescript": "^5"
+    "typescript": "6.0.3"
   },
   "overrides": {
     "next": {
